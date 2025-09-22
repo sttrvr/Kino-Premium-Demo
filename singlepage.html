@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="uz">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kino Ko'rish - Kino Premium</title>
+  <meta name="description" content="Kino Premium — Film sahifasi. Treylerni ko'rish, batafsil ma'lumot va shunga o'xshash filmlar.">
+  <meta name="theme-color" content="#0b0b0f">
+  <link rel="canonical" href="/singlepage.html">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="video.movie">
+  <meta property="og:site_name" content="Kino Premium">
+  <meta property="og:title" content="Kino — Ko'rish sahifasi">
+  <meta property="og:description" content="Treylerni ko'ring, ma'lumotlarni o'qing va o'xshash filmlarni toping.">
+  <meta property="og:url" content="/singlepage.html">
+  <meta property="og:image" content="/favicon.ico">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Kino — Ko'rish sahifasi">
+  <meta name="twitter:description" content="Treylerni ko'ring, ma'lumotlarni o'qing va o'xshash filmlarni toping.">
+  <meta name="twitter:image" content="/favicon.ico">
+
+  <!-- Preconnects -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <script src="theme.js" defer></script>
+  <script src="single.js" defer></script>
+  <style>
+    .movie-card-big {
+      display: flex;
+      gap: 2.5rem;
+      align-items: flex-start;
+      background: var(--surface2, #18181c);
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      padding: 2.5rem 2rem;
+      margin: 2rem 0;
+      flex-wrap: wrap;
+    }
+
+    .movie-card-img img {
+      width: 260px;
+      max-width: 100%;
+      border-radius: 1rem;
+    }
+
+    .movie-card-info {
+      flex: 1 1 320px;
+      min-width: 260px;
+    }
+
+    .movie-card-title {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .movie-card-meta {
+      color: #ffb300;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 1.2rem;
+      flex-wrap: wrap;
+    }
+
+    .movie-card-desc {
+      font-size: 1.08rem;
+      color: #ddd;
+      margin-bottom: 1.5rem;
+    }
+
+    .movie-card-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    @media (max-width:700px) {
+      .movie-card-big {
+        flex-direction: column;
+        padding: 1.2rem 0.5rem;
+      }
+
+      .movie-card-img img {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+        display: block;
+      }
+
+      .movie-player iframe {
+        height: 260px;
+      }
+    }
+
+    .movie-player {
+      margin-top: 2rem;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .movie-player iframe {
+      width: 100%;
+      height: 500px;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Yuklash animatsiyasi -->
+  <div class="loader-container" id="loader">
+    <div class="loader"></div>
+  </div>
+  
+  <div id="app" class="app">
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="/" class="logo">
+          <div class="logo-icon">
+            <i class="fas fa-play-circle"></i>
+          </div>
+          <span class="logo-text">KINO<span class="logo-premium">PREMIUM</span></span>
+        </a>
+
+        <nav class="main-nav">
+          <ul class="nav-list">
+            <li><a href="" class="nav-link active" data-filter="popular" id="navPopular"><i
+                  class="fas fa-fire"></i>Kino</a></li>
+            <li><a href="index.html" class="nav-link" data-filter="now_playing" id="navNowPlaying"><i
+                  class="fas fa-film"></i> Kinolar</a></li>
+            <li><a href="singlepage.html#top" class="nav-link" id="navTopRated"><i class="fas fa-star"></i> Top</a></li>
+          </ul>
+        </nav>
+
+        <div class="header-actions">
+          <form id="searchForm" class="search-form">
+            <div class="search-input-wrapper">
+              <input id="searchInput" name="q" type="search" placeholder="Film qidiring..." />
+              <button type="submit"><i class="fas fa-search"></i></button>
+            </div>
+          </form>
+          <button id="themeToggle" class="btn icon-btn" aria-label="Rejimni almashtirish" aria-pressed="false" title="Light/Dark">
+            <i class="fas fa-moon"></i>
+          </button>
+        </div>
+
+        <button class="mobile-menu-toggle">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="container">
+        <section id="videoPage" class="video-page active">
+          <div class="movie-card-big" id="singleMovieCard">
+            <div class="movie-card-img">
+              <img id="moviePoster" src="" alt="Poster" />
+            </div>
+            <div class="movie-card-info">
+              <h1 id="movieTitle" class="movie-card-title"></h1>
+              <div class="movie-card-meta">
+                <span id="movieYear"></span>
+                <span id="movieRating"></span>
+                <span id="movieGenres"></span>
+              </div>
+              <div class="movie-player">
+                <iframe id="moviePlayer" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="no-referrer-when-downgrade" loading="lazy" allowfullscreen></iframe>
+              </div>
+              <p id="movieDescription" class="movie-card-desc"></p>
+              <div class="movie-card-actions">
+                <a class="btn primary" id="trailerBtn" target="_blank" rel="noopener">
+                  <i class="fas fa-film"></i> Treylerni ko'rish
+                </a>
+                <button id="singleFavBtn" class="btn icon-btn" aria-pressed="false" aria-label="Sevimlilarga qo'shish">
+                  <i class="far fa-heart"></i>
+                </button>
+                <button id="backButton" class="btn ghost">
+                  <i class="fas fa-arrow-left"></i> Orqaga
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <script>
+          // Sahifa yuklanganda ishga tushuvchi kod
+          document.addEventListener('DOMContentLoaded', async function() {
+            try {
+              // Film ma'lumotlarini yuklash
+              const response = await fetch('movies.json');
+              const movies = await response.json();
+              
+              // localStorage dan film ID ni olish
+              const movieId = localStorage.getItem('selectedMovieId');
+              
+              if (!movieId) {
+                console.error('Film ID topilmadi!');
+                hideLoader();
+                return;
+              }
+              
+              // Film ma'lumotlarini topish
+              const movie = movies.find(m => m.id == movieId);
+              
+              if (movie) {
+                // Film ma'lumotlarini sahifaga joylashtirish
+                const titleEl = document.querySelector('.movie-title');
+                const yearEl = document.querySelector('.movie-year');
+                const typeEl = document.querySelector('.movie-type');
+                const durationEl = document.querySelector('.movie-duration');
+                const descriptionEl = document.querySelector('.movie-description');
+                const posterEl = document.querySelector('.movie-poster img');
+                
+                if (titleEl) titleEl.textContent = movie.name || 'Nomsiz film';
+                if (yearEl) yearEl.textContent = movie.year || 'N/A';
+                if (typeEl) typeEl.textContent = movie.type || 'Film';
+                if (durationEl) durationEl.textContent = (movie.duration || '120') + ' min';
+                if (descriptionEl) descriptionEl.textContent = movie.details || 'Ma\'lumot mavjud emas';
+                if (posterEl && movie.poster_img) posterEl.src = movie.poster_img;
+              } else {
+                console.error('Film topilmadi!');
+              }
+            } catch (error) {
+              console.error('Xatolik yuz berdi:', error);
+            } finally {
+              // Yuklash animatsiyasini yashirish
+              hideLoader();
+            }
+          });
+          
+          // Yuklash animatsiyasini yashirish
+          function hideLoader() {
+            const loader = document.getElementById('loader');
+            if (loader) {
+              loader.classList.add('loader-hidden');
+              setTimeout(() => {
+                loader.style.display = 'none';
+              }, 500);
+            }
+          }
+          </script>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-gradient-flow"></div>
+      <div class="container footer-inner">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <div class="logo"><i class="fas fa-play-circle icon rotate"></i>KINO<span
+                class="logo-premium">PREMIUM</span></div>
+            <p>Eng yangi va eng yaxshi filmlar faqat bizda</p>
+          </div>
+
+          <div class="footer-links">
+            <div class="footer-column">
+              <h4>Havolalar</h4>
+              <a href="#">Bosh sahifa</a>
+              <a href="#">Filmlar</a>
+              <a href="#">Seriallar</a>
+              <a href="#">Yangi qo'shilganlar</a>
+            </div>
+            <div class="footer-column">
+              <h4>Hisob</h4>
+              <a href="#">Profil</a>
+              <a href="#">Sevimlilar</a>
+              <a href="#">Tarix</a>
+              <a href="#">Sozlamalar</a>
+            </div>
+            <div class="footer-column">
+              <h4>Yordam</h4>
+              <a href="#">FAQ</a>
+              <a href="#">Qo'llab-quvvat</a>
+              <a href="#">Shartlar</a>
+              <a href="#">Maxfiylik</a>
+            </div>
+          </div>
+
+          <div class="footer-social">
+            <h4>Bizni kuzatib boring</h4>
+            <div class="social-icons">
+              <a href="#" class="icon bounce"><i class="fab fa-telegram"></i></a>
+              <a href="#" class="icon bounce"><i class="fab fa-instagram"></i></a>
+              <a href="#" class="icon bounce"><i class="fab fa-youtube"></i></a>
+              <a href="#" class="icon bounce"><i class="fab fa-twitter"></i></a>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <p>© <span id="year"></span> Kino Premium. Barcha huquqlar himoyalangan.</p>
+          <nav class="footer-nav">
+            <a href="privacy.html">Maxfiylik siyosati</a>
+            <a href="terms.html">Foydalanish shartlari</a>
+          </nav>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const movieId = localStorage.getItem('selectedMovieId');
+        if (!movieId) throw new Error('selectedMovieId topilmadi. Index sahifadan "Ko\'rish" tugmasi bilan tanlang.');
+
+        let moviesList = Array.isArray(window.movies) ? window.movies : [];
+        if (!moviesList.length) {
+          const res = await fetch('movies.json');
+          if (!res.ok) throw new Error('movies.json yuklanmadi, status=' + res.status);
+          moviesList = await res.json();
+        }
+
+        const movie = moviesList.find(m => String(m.id) === String(movieId));
+        if (!movie) throw new Error('Tanlangan film topilmadi: id=' + movieId);
+
+        const posterEl = document.getElementById('moviePoster');
+        const titleEl = document.getElementById('movieTitle');
+        const yearEl = document.getElementById('movieYear');
+        const ratingEl = document.getElementById('movieRating');
+        const genresEl = document.getElementById('movieGenres');
+        const descEl = document.getElementById('movieDescription');
+        const trailerBtn = document.getElementById('trailerBtn');
+        const backBtn = document.getElementById('backButton');
+        const playerEl = document.getElementById('moviePlayer');
+        const singleFavBtn = document.getElementById('singleFavBtn');
+
+        const title = movie.primaryTitle || movie.title || movie.name || '';
+        const poster = movie.primaryImage || movie.poster_img || (movie.poster_path ? 'https://image.tmdb.org/t/p/w500' + movie.poster_path : '');
+        const year = movie.releaseDate ? new Date(movie.releaseDate).getFullYear() : (movie.year || '');
+        const rating = movie.averageRating ?? movie.vote_average ?? '';
+        const genres = Array.isArray(movie.genres) ? movie.genres.join(', ') : (movie.genres || movie.type || '');
+        const description = movie.description || movie.details || movie.overview || '';
+        const trailerUrl = movie.trailer || movie.video || movie.trailerUrl || movie.videoUrl || '';
+
+        posterEl.src = poster || '';
+        posterEl.alt = title || 'Poster';
+        posterEl.loading = 'lazy';
+        posterEl.decoding = 'async';
+        posterEl.width = 300;
+        posterEl.height = 450;
+        if (movie.poster_path) {
+          const p = movie.poster_path;
+          posterEl.srcset = `https://image.tmdb.org/t/p/w185${p} 185w, https://image.tmdb.org/t/p/w342${p} 342w, https://image.tmdb.org/t/p/w500${p} 500w`;
+          posterEl.sizes = '(max-width: 480px) 60vw, (max-width: 768px) 40vw, 300px';
+        } else {
+          posterEl.removeAttribute('srcset');
+          posterEl.removeAttribute('sizes');
+        }
+        titleEl.textContent = title || 'Noma\'lum film';
+        yearEl.textContent = year || '';
+        ratingEl.textContent = rating ? '⭐ ' + rating : '';
+        genresEl && (genresEl.textContent = genres || '');
+        descEl.textContent = description || '';
+
+        if (trailerUrl) {
+          const fullUrl = trailerUrl.startsWith('//') ? location.protocol + trailerUrl : trailerUrl;
+          trailerBtn.href = fullUrl;
+          playerEl.src = fullUrl;
+        } else {
+          trailerBtn.style.display = 'none';
+          playerEl.style.display = 'none';
+        }
+
+        // Update SEO meta tags dynamically
+        const setMeta = (selector, attr, value) => {
+          let el = document.querySelector(selector);
+          if (!el) {
+            el = document.createElement('meta');
+            const [key, val] = selector.includes('property') ? ['property', selector.match(/property=\"([^\"]+)/)[1]] : ['name', selector.match(/name=\"([^\"]+)/)[1]];
+            el.setAttribute(key, val);
+            document.head.appendChild(el);
+          }
+          el.setAttribute(attr, value);
+        };
+        const shareImg = poster || '/favicon.ico';
+        const pageUrl = location.origin + location.pathname;
+        setMeta('meta[property="og:title"]', 'content', title);
+        setMeta('meta[property="og:description"]', 'content', description || '');
+        setMeta('meta[property="og:image"]', 'content', shareImg);
+        setMeta('meta[property="og:url"]', 'content', pageUrl);
+        setMeta('meta[name="twitter:title"]', 'content', title);
+        setMeta('meta[name="twitter:description"]', 'content', description || '');
+        setMeta('meta[name="twitter:image"]', 'content', shareImg);
+
+        backBtn.addEventListener('click', () => {
+          localStorage.removeItem('selectedMovieId');
+          window.location.href = 'index.html';
+        });
+
+        // Favorites toggle on single page
+        try {
+          const rawFav = JSON.parse(localStorage.getItem('favorites') || '[]');
+          const favs = Array.isArray(rawFav) ? rawFav.map(Number) : [];
+          const mid = Number(movie.id);
+          const isFav = favs.includes(mid);
+          singleFavBtn.setAttribute('aria-pressed', String(isFav));
+          singleFavBtn.querySelector('i').className = (isFav ? 'fas' : 'far') + ' fa-heart';
+          singleFavBtn.addEventListener('click', () => {
+            const idx = favs.indexOf(mid);
+            if (idx === -1) favs.push(mid); else favs.splice(idx, 1);
+            localStorage.setItem('favorites', JSON.stringify(favs));
+            const nowFav = favs.includes(mid);
+            singleFavBtn.setAttribute('aria-pressed', String(nowFav));
+            singleFavBtn.querySelector('i').className = (nowFav ? 'fas' : 'far') + ' fa-heart';
+          });
+        } catch {}
+
+        console.log('Film muvaffaqiyatli yuklandi:', title);
+      } catch (err) {
+        console.error('Singlepage init error:', err);
+        alert('Xatolik: ' + err.message);
+      }
+    });
+  </script>
+  <script>
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function (err) {
+          console.debug('SW register failed:', err);
+        });
+      });
+    }
+  </script>
+</body>
+
+</html>

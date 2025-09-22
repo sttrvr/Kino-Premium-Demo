@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Maxfiylik siyosati — Kino Premium</title>
+  <meta name="description" content="Kino Premium maxfiylik siyosati.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <div class="app">
+    <header class="site-header" role="banner">
+      <div class="container header-inner">
+        <a href="index.html" class="logo" aria-label="Bosh sahifa">
+          <div class="logo-icon"><i class="fas fa-play-circle"></i></div>
+          <span class="logo-text">KINO<span class="logo-premium">PREMIUM</span></span>
+        </a>
+      </div>
+    </header>
+    <main class="main" role="main">
+      <div class="container">
+        <h1 class="section-title">Maxfiylik siyosati</h1>
+        <p>Ushbu sahifa foydalanuvchi ma'lumotlarini qayta ishlash va himoya qilish tartibini bayon qiladi.</p>
+        <ul>
+          <li>Biz faqat xizmatni yaxshilash uchun agregatsiyalangan analitik ma'lumotlardan foydalanamiz.</li>
+          <li>Shaxsiy ma'lumotlar faqat foydalanuvchi roziligi bilan yig'iladi.</li>
+          <li>Foydalanuvchi xohishiga ko'ra ma'lumotlarni o'chirishni so'rashi mumkin.</li>
+        </ul>
+        <p><a class="btn ghost" href="index.html">Bosh sahifa</a></p>
+      </div>
+    </main>
+    <footer class="site-footer" role="contentinfo">
+      <div class="container footer-inner">
+        <div class="footer-bottom">
+          <p>© <span id="year"></span> Kino Premium.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

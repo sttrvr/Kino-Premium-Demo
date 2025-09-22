@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Foydalanish shartlari — Kino Premium</title>
+  <meta name="description" content="Kino Premium foydalanish shartlari.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+  <div class="app">
+    <header class="site-header" role="banner">
+      <div class="container header-inner">
+        <a href="index.html" class="logo" aria-label="Bosh sahifa">
+          <div class="logo-icon"><i class="fas fa-play-circle"></i></div>
+          <span class="logo-text">KINO<span class="logo-premium">PREMIUM</span></span>
+        </a>
+      </div>
+    </header>
+    <main class="main" role="main">
+      <div class="container">
+        <h1 class="section-title">Foydalanish shartlari</h1>
+        <p>Ushbu sahifa xizmatdan foydalanish tartibi va foydalanuvchi majburiyatlarini bayon qiladi.</p>
+        <ul>
+          <li>Xizmat faqat shaxsiy foydalanish uchun mo'ljallangan.</li>
+          <li>Kontentdan foydalanishda amaldagi qonunlarga rioya etish kerak.</li>
+          <li>Qoidalar buzilgan taqdirda xizmatdan cheklash qo'llanilishi mumkin.</li>
+        </ul>
+        <p><a class="btn ghost" href="index.html">Bosh sahifa</a></p>
+      </div>
+    </main>
+    <footer class="site-footer" role="contentinfo">
+      <div class="container footer-inner">
+        <div class="footer-bottom">
+          <p>© <span id="year"></span> Kino Premium.</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

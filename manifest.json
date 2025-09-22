@@ -1,0 +1,13 @@
+{
+  "name": "Kino Premium",
+  "short_name": "Kino",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0b0f",
+  "theme_color": "#0b0b0f",
+  "description": "Eng yangi va eng yaxshi filmlar. Qidiruv, janrlar, top reytinglar va treylerlar.",
+  "icons": [
+    { "src": "favicon.ico", "sizes": "48x48 64x64 128x128", "type": "image/x-icon" }
+  ]
+}
