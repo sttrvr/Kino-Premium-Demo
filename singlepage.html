@@ -8,6 +8,7 @@
   <meta name="description" content="Kino Premium — Film sahifasi. Treylerni ko'rish, batafsil ma'lumot va shunga o'xshash filmlar.">
   <meta name="theme-color" content="#0b0b0f">
   <link rel="canonical" href="/singlepage.html">
+  <link rel="shortcut icon" href="https://img.icons8.com/ios-filled/50/FA5252/play-button-circled--v1.png" type="image/x-icon">
 
   <!-- Open Graph -->
   <meta property="og:type" content="video.movie">
@@ -117,6 +118,48 @@
       height: 500px;
       display: block;
     }
+
+    /* Similar movies horizontal scroller */
+    #similarSection { margin: 2rem 0; }
+    #similarGrid {
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      padding: 0.25rem 0.25rem 0.75rem;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      cursor: grab;
+    }
+    #similarGrid::-webkit-scrollbar { height: 8px; }
+    #similarGrid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 8px; }
+    #similarGrid .movie-card { min-width: 180px; max-width: 220px; scroll-snap-align: start; }
+    #similarGrid.dragging { cursor: grabbing; }
+    @media (max-width: 768px) {
+      #similarGrid .movie-card { min-width: 160px; }
+    }
+
+    .sim-nav {
+      position: relative;
+    }
+    .sim-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px; height: 40px;
+      border-radius: 50%; border: none;
+      background: rgba(0,0,0,0.45);
+      color: #fff; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+      z-index: 5;
+    }
+    #simPrev { left: -10px; }
+    #simNext { right: -10px; }
+    @media (max-width: 768px) {
+      #simPrev { left: 0; }
+      #simNext { right: 0; }
+    }
   </style>
 </head>
 
@@ -184,6 +227,7 @@
                 <iframe id="moviePlayer" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="no-referrer-when-downgrade" loading="lazy" allowfullscreen></iframe>
               </div>
               <p id="movieDescription" class="movie-card-desc"></p>
+              <div id="movieMoreMeta" class="movie-card-meta" style="color:var(--muted);gap:0.75rem"></div>
               <div class="movie-card-actions">
                 <a class="btn primary" id="trailerBtn" target="_blank" rel="noopener">
                   <i class="fas fa-film"></i> Treylerni ko'rish
@@ -195,8 +239,42 @@
                   <i class="fas fa-arrow-left"></i> Orqaga
                 </button>
               </div>
+
+              <hr style="margin:1rem 0;border-color:rgba(255,255,255,0.1)">
+
+              <section id="reviewsSectionSingle" aria-label="Sharh va reyting">
+                <h3 style="margin-bottom:0.5rem">Sharh va reyting</h3>
+                <form id="reviewFormSingle" class="auth-form" style="margin:0 0 1rem 0">
+                  <div class="form-row">
+                    <label for="reviewRatingSingle">Reyting</label>
+                    <select id="reviewRatingSingle" required>
+                      <option value="">Tanlang</option>
+                      <option value="5">5 - A'lo</option>
+                      <option value="4">4 - Yaxshi</option>
+                      <option value="3">3 - O'rtacha</option>
+                      <option value="2">2 - Yomonroq</option>
+                      <option value="1">1 - Juda yomon</option>
+                    </select>
+                  </div>
+                  <div class="form-row">
+                    <label for="reviewTextSingle">Fikr</label>
+                    <textarea id="reviewTextSingle" rows="3" placeholder="Fikringizni yozing..." style="resize:vertical;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:0.6rem 0.75rem"></textarea>
+                  </div>
+                  <button type="submit" class="btn primary"><i class="fas fa-star"></i> Yuborish</button>
+                </form>
+                <ul id="reviewsListSingle" style="display:flex;flex-direction:column;gap:0.75rem;padding-left:0"></ul>
+              </section>
             </div>
           </div>
+
+          <section id="similarSection" style="margin:2rem 0">
+            <h3 class="section-title" style="margin-bottom:1rem">O'xshash filmlar</h3>
+            <div class="sim-nav">
+              <button id="simPrev" class="sim-btn" aria-label="Oldingi"><i class="fas fa-chevron-left"></i></button>
+              <ul id="similarGrid" class="movies-grid"></ul>
+              <button id="simNext" class="sim-btn" aria-label="Keyingi"><i class="fas fa-chevron-right"></i></button>
+            </div>
+          </section>
           
           <script>
           // Sahifa yuklanganda ishga tushuvchi kod
@@ -214,27 +292,110 @@
                 hideLoader();
                 return;
               }
+
+            // Prev/Next buttons for similar scroller
+            function initSimilarNav() {
+              const scroller = document.getElementById('similarGrid');
+              const prev = document.getElementById('simPrev');
+              const next = document.getElementById('simNext');
+              if (!scroller || !prev || !next) return;
+              const getStep = () => {
+                const card = scroller.querySelector('.movie-card');
+                if (!card) return 240; // default step
+                const style = window.getComputedStyle(card);
+                const w = card.getBoundingClientRect().width + parseFloat(style.marginLeft) + parseFloat(style.marginRight);
+                return Math.max(160, Math.min(320, w));
+              };
+              prev.onclick = (e) => {
+                e.preventDefault(); scroller.scrollBy({ left: -getStep(), behavior: 'smooth' });
+              };
+              next.onclick = (e) => {
+                e.preventDefault(); scroller.scrollBy({ left: +getStep(), behavior: 'smooth' });
+              };
+            }
               
               // Film ma'lumotlarini topish
               const movie = movies.find(m => m.id == movieId);
               
               if (movie) {
                 // Film ma'lumotlarini sahifaga joylashtirish
-                const titleEl = document.querySelector('.movie-title');
-                const yearEl = document.querySelector('.movie-year');
-                const typeEl = document.querySelector('.movie-type');
-                const durationEl = document.querySelector('.movie-duration');
-                const descriptionEl = document.querySelector('.movie-description');
-                const posterEl = document.querySelector('.movie-poster img');
+                const titleEl = document.querySelector('#movieTitle');
+                const yearEl = document.querySelector('#movieYear');
+                const typeEl = document.querySelector('#movieGenres');
+                const durationEl = document.querySelector('#movieDescription');
+                const posterEl = document.querySelector('#moviePoster');
                 
                 if (titleEl) titleEl.textContent = movie.name || 'Nomsiz film';
                 if (yearEl) yearEl.textContent = movie.year || 'N/A';
                 if (typeEl) typeEl.textContent = movie.type || 'Film';
                 if (durationEl) durationEl.textContent = (movie.duration || '120') + ' min';
-                if (descriptionEl) descriptionEl.textContent = movie.details || 'Ma\'lumot mavjud emas';
                 if (posterEl && movie.poster_img) posterEl.src = movie.poster_img;
               } else {
                 console.error('Film topilmadi!');
+              }
+              // === TMDB integratsiya: topish va render qilish ===
+              try {
+                const titleNorm = movie.name || movie.title || movie.primaryTitle || '';
+                const yearNorm = movie.year || (movie.releaseDate ? new Date(movie.releaseDate).getFullYear() : '');
+                let tmdbId = movie.tmdb_id;
+                let tmdbPrimary = null;
+                if (!tmdbId) {
+                  const found = await fetchTmdbByTitle(titleNorm, yearNorm);
+                  if (found) tmdbId = found.id;
+                }
+                if (tmdbId) {
+                  tmdbPrimary = await fetchTmdbDetails(tmdbId);
+                  const moreMetaEl = document.getElementById('movieMoreMeta');
+                  renderCredits(moreMetaEl, tmdbPrimary.details, tmdbPrimary.credits);
+                }
+
+                // Similar (always try to render from TMDB first, then fallback to local)
+                const simGrid = document.getElementById('similarGrid');
+                const simSection = document.getElementById('similarSection');
+                if (simGrid) {
+                  simGrid.innerHTML = '';
+                  let list = Array.isArray(tmdbPrimary?.similar) ? tmdbPrimary.similar.slice(0, 20) : [];
+                  // Render TMDB similar
+                  list.forEach(s => simGrid.appendChild(createSimilarCard(s)));
+
+                  // Fallback to local JSON by category intersection if TMDB similar is empty
+                  if (!simGrid.children.length && Array.isArray(movies)) {
+                    const baseCats = Array.isArray(movie.category) ? movie.category.map(String) : [];
+                    const candidates = movies.filter(m => String(m.id) !== String(movieId));
+                    const scored = candidates.map(m => {
+                      const cats = Array.isArray(m.category) ? m.category.map(String) : [];
+                      const score = cats.filter(c => baseCats.includes(c)).length;
+                      return { m, score };
+                    }).filter(x => x.score > 0).sort((a,b) => b.score - a.score);
+                    const pick = scored.slice(0, 20).map(x => x.m);
+                    pick.forEach(mm => {
+                      const li = document.createElement('li');
+                      li.className = 'movie-card';
+                      const title = mm.name || mm.title || '';
+                      const year = mm.year || '';
+                      const rating = mm.vote_average ? Number(mm.vote_average).toFixed(1) : 'N/A';
+                      const poster = mm.poster_img || mm.image || (mm.poster_path ? `https://image.tmdb.org/t/p/w500${mm.poster_path}` : 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image');
+                      li.innerHTML = `
+                        <div class="poster-wrap">
+                          <img src="${poster}" alt="${title}" loading="lazy" decoding="async" width="300" height="450">
+                        </div>
+                        <div class="movie-info">
+                          <h4>${title}</h4>
+                          <div class="meta">${year} • ⭐ ${rating}</div>
+                        </div>`;
+                      li.addEventListener('click', () => {
+                        localStorage.setItem('selectedMovieId', mm.id);
+                        location.reload();
+                      });
+                      simGrid.appendChild(li);
+                    });
+                  }
+                  if (simSection) simSection.style.display = simGrid.children.length ? '' : 'none';
+                  initSimilarDrag();
+                  initSimilarNav();
+                }
+              } catch (tmdbErr) {
+                console.debug('TMDB fetch skipped:', tmdbErr);
               }
             } catch (error) {
               console.error('Xatolik yuz berdi:', error);
@@ -254,6 +415,108 @@
               }, 500);
             }
           }
+            // === TMDB details & similar ===
+            const API_KEY = '1cc4799e6c8448e51c96a232c8ec4b18';
+            const API_URL = 'https://api.themoviedb.org/3';
+            function normalizeTitle(m) { return m.primaryTitle || m.title || m.name || ''; }
+            async function fetchTmdbByTitle(title, year) {
+              try {
+                const url = `${API_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(title)}${year ? `&year=${year}` : ''}&language=uz-UZ&region=UZ&page=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+                return (data.results || [])[0] || null;
+              } catch { return null; }
+            }
+            async function fetchTmdbDetails(id) {
+              const [details, credits, similar] = await Promise.all([
+                fetch(`${API_URL}/movie/${id}?api_key=${API_KEY}&language=uz-UZ`).then(r=>r.json()).catch(()=>null),
+                fetch(`${API_URL}/movie/${id}/credits?api_key=${API_KEY}&language=uz-UZ`).then(r=>r.json()).catch(()=>null),
+                fetch(`${API_URL}/movie/${id}/similar?api_key=${API_KEY}&language=uz-UZ&region=UZ&page=1`).then(r=>r.json()).catch(()=>null)
+              ]);
+              return { details, credits, similar: (similar && similar.results) || [] };
+            }
+            function renderCredits(metaEl, details, credits) {
+              if (!metaEl) return;
+              const parts = [];
+              if (details && (details.runtime || details.original_language || details.vote_average)) {
+                if (details.runtime) parts.push(`${details.runtime} min`);
+                if (details.original_language) parts.push(`Til: ${details.original_language.toUpperCase()}`);
+                if (details.vote_average) parts.push(`IMDB ⭐ ${Number(details.vote_average).toFixed(1)}`);
+              }
+              if (credits && Array.isArray(credits.crew)) {
+                const dir = credits.crew.find(c => c.job === 'Director');
+                if (dir) parts.push(`Rejissyor: ${dir.name}`);
+              }
+              if (credits && Array.isArray(credits.cast)) {
+                const topCast = credits.cast.slice(0, 5).map(c => c.name).join(', ');
+                if (topCast) parts.push(`Aktyorlar: ${topCast}`);
+              }
+              metaEl.textContent = parts.join(' • ');
+            }
+            function createSimilarCard(m) {
+              const li = document.createElement('li');
+              li.className = 'movie-card';
+              const title = m.title || m.name || '';
+              const year = (m.release_date ? new Date(m.release_date).getFullYear() : '') || '';
+              const rating = typeof m.vote_average === 'number' ? m.vote_average.toFixed(1) : 'N/A';
+              const poster = m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image';
+              li.innerHTML = `
+                <div class="poster-wrap">
+                  <img src="${poster}" alt="${title}" loading="lazy" decoding="async" width="300" height="450">
+                </div>
+                <div class="movie-info">
+                  <h4>${title}</h4>
+                  <div class="meta">${year} • ⭐ ${rating}</div>
+                </div>`;
+              li.addEventListener('click', (e) => {
+                if (window.__similarDraggingActive) { e.preventDefault(); return; }
+                // Save this TMDB movie id as selected and go back to the same page
+                localStorage.setItem('selectedMovieId', m.id);
+                location.reload();
+              });
+              return li;
+            }
+            // Drag-to-scroll for similar grid (mouse)
+            function initSimilarDrag() {
+              const scroller = document.getElementById('similarGrid');
+              if (!scroller) return;
+              let isDown = false; let startX = 0; let scrollLeft = 0; let moved = false;
+              scroller.addEventListener('mousedown', (e) => {
+                isDown = true; moved = false; window.__similarDraggingActive = false;
+                scroller.classList.add('dragging');
+                startX = e.pageX - scroller.offsetLeft;
+                scrollLeft = scroller.scrollLeft;
+              });
+              scroller.addEventListener('mouseleave', () => { isDown = false; scroller.classList.remove('dragging'); window.__similarDraggingActive = false; });
+              scroller.addEventListener('mouseup', () => { isDown = false; scroller.classList.remove('dragging'); setTimeout(()=>{ window.__similarDraggingActive = false; }, 50); });
+              scroller.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - scroller.offsetLeft;
+                const walk = (x - startX) * 1; // speed factor
+                if (Math.abs(walk) > 3) { moved = true; window.__similarDraggingActive = true; }
+                scroller.scrollLeft = scrollLeft - walk;
+              });
+              // Optional: Shift + wheel for horizontal scroll on desktop mice
+              scroller.addEventListener('wheel', (e) => {
+                if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+                  scroller.scrollLeft += e.deltaY;
+                  e.preventDefault();
+                }
+              }, { passive: false });
+            }
+          </script>
+          <script>
+            // === Reviews on single page ===
+            function getStoredReviews(){try{const r=localStorage.getItem('reviews')||'{}';const o=JSON.parse(r);return o&&typeof o==='object'?o:{}}catch{return{}}}
+            function saveStoredReviews(o){try{localStorage.setItem('reviews',JSON.stringify(o))}catch{}}
+            function renderReviewsSingle(mid){const listEl=document.getElementById('reviewsListSingle');if(!listEl) return;const all=getStoredReviews();const list=Array.isArray(all[mid])?all[mid]:[];listEl.innerHTML='';if(!list.length){const li=document.createElement('li');li.style.color='var(--muted)';li.textContent="Hozircha sharh yo'q.";listEl.appendChild(li);return;}list.forEach(r=>{const li=document.createElement('li');li.style.background='var(--bg-light)';li.style.border='1px solid rgba(255,255,255,0.08)';li.style.borderRadius='10px';li.style.padding='0.6rem 0.75rem';li.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><strong>⭐ ${r.rating}</strong><span style="color:var(--muted);font-size:0.8rem">${new Date(r.at).toLocaleString()}</span></div>${r.text?`<div>${r.text}</div>`:''}`;listEl.appendChild(li);});}
+            document.addEventListener('DOMContentLoaded',()=>{
+              const mid=Number(localStorage.getItem('selectedMovieId'))||0;
+              renderReviewsSingle(mid);
+              const form=document.getElementById('reviewFormSingle');
+              if(form){form.addEventListener('submit',(e)=>{e.preventDefault();const rating=Number(document.getElementById('reviewRatingSingle')?.value||0);const text=(document.getElementById('reviewTextSingle')?.value||'').trim();if(!rating) return;const all=getStoredReviews();const list=Array.isArray(all[mid])?all[mid]:[];list.unshift({rating,text,at:new Date().toISOString()});all[mid]=list.slice(0,100);saveStoredReviews(all);const t=document.getElementById('reviewTextSingle');if(t)t.value='';const rr=document.getElementById('reviewRatingSingle');if(rr)rr.value='';renderReviewsSingle(mid);});}
+            });
           </script>
         </section>
       </div>
@@ -434,7 +697,7 @@
     // Service Worker registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function (err) {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
           console.debug('SW register failed:', err);
         });
       });
