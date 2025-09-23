@@ -1,13 +1,14 @@
-const CACHE_NAME = 'kino-premium-v1';
+const CACHE_NAME = 'kino-premium-v2';
+// Use relative paths so the SW works even if the site is served from a subfolder
 const CORE_ASSETS = [
-  '/index.html',
-  '/singlepage.html',
-  '/style.css',
-  '/app.js',
-  '/single.js',
-  '/movies.json',
-  '/manifest.json',
-  '/favicon.ico'
+  'index.html',
+  'singlepage.html',
+  'style.css',
+  'app.js',
+  'single.js',
+  'movies.json',
+  'manifest.json',
+  'favicon.ico'
 ];
 
 self.addEventListener('install', (event) => {
@@ -29,7 +30,7 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
   // Only handle same-origin or movies.json for offline
-  if (url.origin !== self.location.origin && !url.pathname.endsWith('/movies.json')) return;
+  if (url.origin !== self.location.origin && !url.pathname.endsWith('movies.json')) return;
 
   event.respondWith(
     caches.match(req).then((cached) => {
