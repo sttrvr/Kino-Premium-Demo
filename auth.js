@@ -14,6 +14,9 @@
     const nameRow = document.getElementById('nameRow');
     const switchAuthText = document.getElementById('switchAuthText');
     const switchToSignUp = document.getElementById('switchToSignUp');
+    const togglePassVis = document.getElementById('togglePassVis');
+    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
     const signOutBtn = document.getElementById('signOutBtn');
     const userAvatarImg = document.getElementById('userAvatarImg');
     const userDisplayName = document.getElementById('userDisplayName');
@@ -90,6 +93,18 @@
     if (signInBtn) signInBtn.addEventListener('click', () => setMode('signin'));
     if (signUpBtn) signUpBtn.addEventListener('click', () => setMode('signup'));
 
+    // Password visibility toggle
+    if (togglePassVis) {
+      togglePassVis.addEventListener('click', () => {
+        const passInput = /** @type {HTMLInputElement} */(document.getElementById('authPassword'));
+        if (!passInput) return;
+        const isPwd = passInput.type === 'password';
+        passInput.type = isPwd ? 'text' : 'password';
+        const icon = togglePassVis.querySelector('i');
+        if (icon) icon.className = isPwd ? 'fas fa-eye-slash' : 'fas fa-eye';
+      });
+    }
+
     // Firebase initialization (compat) if config is provided
     let auth = null;
     if (window.FIREBASE_CONFIG && window.firebase) {
@@ -104,16 +119,29 @@
     }
 
     // Handle form submit
+    function setAuthLoading(loading) {
+      if (!authSubmitBtn) return;
+      if (loading) {
+        authSubmitBtn.disabled = true;
+        authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+      } else {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerHTML = '<i class="fas fa-unlock"></i> Continue';
+      }
+    }
+
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
     if (authForm) authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = /** @type {HTMLInputElement} */(document.getElementById('authEmail'))?.value?.trim();
       const password = /** @type {HTMLInputElement} */(document.getElementById('authPassword'))?.value || '';
       const fullName = /** @type {HTMLInputElement} */(document.getElementById('authName'))?.value?.trim();
 
-      if (!email || !password) {
-        showToast('Xatolik', 'Email va parolni kiriting');
-        return;
-      }
+      if (!email || !isValidEmail(email)) return showToast('Xatolik', 'Yaroqli email kiriting');
+      if (!password || password.length < 6) return showToast('Xatolik', 'Parol kamida 6 ta belgidan iborat bo‘lsin');
 
       if (!auth) {
         showToast('Sozlash kerak', 'Iltimos, firebase-config.js faylida Firebase sozlamalarini to‘ldiring');
@@ -121,6 +149,7 @@
       }
 
       try {
+        setAuthLoading(true);
         if (currentMode === 'signup') {
           if (!fullName) {
             showToast('Xatolik', 'Ismni kiriting');
@@ -141,10 +170,35 @@
         const msg = err && err.message ? err.message : 'Xatolik yuz berdi';
         showToast('Xatolik', msg);
       }
+      finally {
+        setAuthLoading(false);
+      }
     });
 
     if (googleBtn) googleBtn.addEventListener('click', comingSoon);
     if (githubBtn) githubBtn.addEventListener('click', comingSoon);
+
+    // Reset password flow
+    if (forgotPasswordLink) {
+      forgotPasswordLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = /** @type {HTMLInputElement} */(document.getElementById('authEmail'))?.value?.trim();
+        if (!email || !isValidEmail(email)) {
+          showToast('Xatolik', 'Avval to‘g‘ri email kiriting');
+          return;
+        }
+        if (!auth) {
+          showToast('Sozlash kerak', 'Firebase sozlamalarini to‘ldiring');
+          return;
+        }
+        try {
+          await auth.sendPasswordResetEmail(email);
+          showToast('Yuborildi', 'Parolni tiklash havolasi emailingizga yuborildi');
+        } catch (e) {
+          showToast('Xatolik', 'Tiklash xatolik berdi: ' + (e?.message || '')); 
+        }
+      });
+    }
 
     // Keep dropdown behavior (for future when user is signed in)
     if (userMenuBtn && userDropdown && userMenu) {
