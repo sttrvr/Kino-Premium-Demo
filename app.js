@@ -6,7 +6,8 @@ const CONFIG = {
   apiUrl: API_URL,
   imageBaseUrl: 'https://image.tmdb.org/t/p/w500',
   backdropBaseUrl: 'https://image.tmdb.org/t/p/w1280',
-  defaultLanguage: 'en-US',
+  defaultLanguage: 'uz-UZ',
+  defaultRegion: 'UZ',
   carouselAutoplayInterval: 5000,
   itemsPerPage: 20,
   genres: {
@@ -30,6 +31,111 @@ const CONFIG = {
   }
 };
 
+// Show watchlist view
+async function showWatchlist() {
+  if (!state.watchlist.length) {
+    if (elements.moviesGrid) elements.moviesGrid.innerHTML = '';
+    toggleEmptyState(true);
+    return;
+  }
+  const json = await loadMoviesFromJSON();
+  let wlMovies = [];
+  if (json.length) {
+    wlMovies = json.filter(m => state.watchlist.includes(Number(m.id)));
+  } else {
+    wlMovies = await Promise.all(state.watchlist.map(async id => {
+      try {
+        const res = await fetch(`${CONFIG.apiUrl}/movie/${id}?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}`);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch {
+        return null;
+      }
+    }));
+    wlMovies = wlMovies.filter(Boolean);
+  }
+  renderMovies(wlMovies);
+  toggleEmptyState(wlMovies.length === 0);
+}
+
+// Load 500 popular movies (25 pages x 20 items) and render
+async function fetchAllPopular(limit = 500) {
+  try {
+    setLoading(true);
+    const json = await loadMoviesFromJSON();
+    if (json.length) {
+      const slice = json.slice(0, limit);
+      renderMovies(slice);
+      setupCarousel(slice.slice(0, 5));
+      state.totalPages = 1;
+      state.currentPage = 1;
+      return;
+    }
+    const perPage = CONFIG.itemsPerPage || 20;
+    const pages = Math.ceil(limit / perPage);
+    const results = [];
+    for (let p = 1; p <= pages; p++) {
+      try {
+        const res = await fetch(`${CONFIG.apiUrl}/movie/popular?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&page=${p}`);
+        const data = await res.json();
+        if (Array.isArray(data.results)) results.push(...data.results);
+        if (results.length >= limit) break;
+      } catch (e) {
+        console.debug('fetchAllPopular page error', p, e);
+      }
+    }
+    const list = results.slice(0, limit);
+    renderMovies(list);
+    setupCarousel(list.slice(0, 5));
+    state.totalPages = 1;
+    state.currentPage = 1;
+  } catch (err) {
+    console.error('fetchAllPopular error:', err);
+  } finally {
+    setLoading(false);
+  }
+
+  // Pause autoplay when tab is hidden, resume when visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(state.carouselInterval);
+    } else {
+      // Only resume if autoplay is enabled
+      if (!elements.carouselAutoplay || elements.carouselAutoplay.checked) {
+        startCarouselAutoplay();
+      }
+    }
+  });
+}
+
+// Load Top Rated Top 10 movies and render
+async function fetchTopRatedTop10() {
+  try {
+    setLoading(true);
+    const json = await loadMoviesFromJSON();
+    if (json.length) {
+      const sorted = [...json].sort((a, b) => (b.averageRating || b.vote_average || 0) - (a.averageRating || a.vote_average || 0));
+      const top10 = sorted.slice(0, 10);
+      renderMovies(top10);
+      setupCarousel(top10.slice(0, 5));
+      state.totalPages = 1;
+      state.currentPage = 1;
+      return;
+    }
+    const res = await fetch(`${CONFIG.apiUrl}/movie/top_rated?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&page=1`);
+    const data = await res.json();
+    const top10 = (data.results || []).slice(0, 10);
+    renderMovies(top10);
+    setupCarousel(top10.slice(0, 5));
+    state.totalPages = 1;
+    state.currentPage = 1;
+  } catch (err) {
+    console.error('fetchTopRatedTop10 error:', err);
+  } finally {
+    setLoading(false);
+  }
+}
+
 const state = {
   currentMovies: [],
   currentPage: 1,
@@ -39,10 +145,12 @@ const state = {
   currentSlide: 0,
   carouselItems: [],
   favorites: [],
+  watchlist: [],
   currentFilter: 'popular',
   currentGenreId: null,
   currentSearchQuery: '',
-  currentCategory: null
+  currentCategory: null,
+  currentModalMovieId: null
 };
 
 const elements = {
@@ -65,12 +173,21 @@ const elements = {
   carouselDots: document.getElementById('carouselDots'),
   carouselAutoplay: document.getElementById('carouselAutoplay'),
   favoritesToggle: document.getElementById('favoritesToggle'),
+  watchlistToggle: document.getElementById('watchlistToggle'),
   emptyState: document.getElementById('emptyState'),
   navLinks: document.querySelectorAll('.main-nav .nav-link'),
   categoryCards: document.querySelectorAll('.category-card'),
   moviesSectionTitle: document.getElementById('moviesSectionTitle'),
   mobileMenuToggle: document.querySelector('.mobile-menu-toggle'),
   mainNav: document.querySelector('.main-nav'),
+  trailerModal: document.getElementById('trailerModal'),
+  trailerFrame: document.getElementById('trailerFrame'),
+  trailerClose: document.getElementById('trailerClose'),
+  // Reviews & ratings
+  reviewForm: document.getElementById('reviewForm'),
+  reviewsList: document.getElementById('reviewsList'),
+  reviewRating: document.getElementById('reviewRating'),
+  reviewText: document.getElementById('reviewText'),
   // Footer links
   footerFavorites: document.getElementById('footerFavorites'),
   footerHistory: document.getElementById('footerHistory'),
@@ -86,6 +203,13 @@ try {
   state.favorites = Array.isArray(rawFav) ? rawFav.map(id => Number(id)) : [];
 } catch {
   state.favorites = [];
+}
+// Load watchlist
+try {
+  const rawWl = JSON.parse(localStorage.getItem('watchlist') || '[]');
+  state.watchlist = Array.isArray(rawWl) ? rawWl.map(id => Number(id)) : [];
+} catch {
+  state.watchlist = [];
 }
 
 // Helpers to normalize movie object
@@ -145,7 +269,7 @@ async function fetchPopularMovies(page = 1) {
   try {
     const json = await loadMoviesFromJSON();
     if (json.length) return json;
-    const res = await fetch(`${CONFIG.apiUrl}/movie/popular?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&page=${page}`);
+    const res = await fetch(`${CONFIG.apiUrl}/movie/popular?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&page=${page}`);
     const data = await res.json();
     return data.results || [];
   } catch (err) {
@@ -170,6 +294,26 @@ function renderMovies(movies = [], append = false) {
   state.currentMovies = append ? [...state.currentMovies, ...movies] : movies;
 }
 
+// Skeletons for loading state
+function renderSkeletons(count = 12) {
+  if (!elements.moviesGrid) return;
+  elements.moviesGrid.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const li = document.createElement('li');
+    li.className = 'movie-card skeleton';
+    li.innerHTML = `
+      <div class="poster-wrap">
+        <div class="skeleton-box poster"></div>
+      </div>
+      <div class="movie-info">
+        <div class="skeleton-box title"></div>
+        <div class="skeleton-box meta"></div>
+      </div>
+    `;
+    elements.moviesGrid.appendChild(li);
+  }
+}
+
 // Create movie card element
 // Kino kartochkasini yaratish funksiyasini yangilash
 function createMovieCard(movie) {
@@ -184,6 +328,7 @@ function createMovieCard(movie) {
   const rating = getRating(movie);
   const desc = getDescription(movie);
   const isFav = state.favorites.includes(id);
+  const inWatchlist = state.watchlist.includes(id);
 
   const posterPath = movie.poster_path || '';
   const srcset = posterPath
@@ -194,6 +339,9 @@ function createMovieCard(movie) {
       <img src="${poster}" ${srcset ? `srcset="${srcset}" sizes="(max-width: 480px) 45vw, (max-width: 768px) 30vw, 200px"` : ''} alt="${title}" loading="lazy" decoding="async" width="300" height="450">
       <button class="poster-fav-btn" type="button" aria-label="Sevimlilarga qo'shish" aria-pressed="${isFav}" data-id="${id}">
         <i class="${isFav ? 'fas' : 'far'} fa-heart"></i>
+      </button>
+      <button class="poster-watchlist-btn" type="button" aria-label="Watchlistga qo'shish" aria-pressed="${inWatchlist}" data-id="${id}" style="position:absolute;top:48px;right:8px;width:36px;height:36px;border:none;border-radius:50%;background:rgba(0,0,0,0.45);color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.35)">
+        <i class="${inWatchlist ? 'fas' : 'far'} fa-bookmark"></i>
       </button>
       <div class="quick-info">
         <p>${desc}</p>
@@ -243,7 +391,7 @@ function createMovieCard(movie) {
   if (trailerBtn) {
     trailerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      watchTrailer(movie);
+      openTrailerModal(movie);
     });
   }
 
@@ -266,6 +414,22 @@ function createMovieCard(movie) {
         if (pressed && !meta.innerHTML.includes('❤️')) meta.innerHTML += ' • ❤️';
         if (!pressed && meta.innerHTML.includes('❤️')) meta.innerHTML = meta.innerHTML.replace(' • ❤️', '');
       }
+    });
+  }
+
+  // Watchlist button on card
+  const wlBtn = li.querySelector('.poster-watchlist-btn');
+  if (wlBtn) {
+    wlBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mid = Number(wlBtn.dataset.id);
+      const idx = state.watchlist.indexOf(mid);
+      if (idx === -1) state.watchlist.push(mid); else state.watchlist.splice(idx, 1);
+      localStorage.setItem('watchlist', JSON.stringify(state.watchlist));
+      const pressed = state.watchlist.includes(mid);
+      wlBtn.setAttribute('aria-pressed', String(pressed));
+      const icon = wlBtn.querySelector('i');
+      if (icon) icon.className = (pressed ? 'fas' : 'far') + ' fa-bookmark';
     });
   }
 
@@ -300,18 +464,56 @@ function watchTrailer(movie) {
   const trailerUrl = movie.trailer || movie.video || '';
   
   if (trailerUrl) {
-    // Agar treyler URL si mavjud bo'lsa, yangi oynada ochamiz
-    window.open(trailerUrl, '_blank');
+    // Backward compatibility: open in new tab if modal is not present
+    if (!elements.trailerModal || !elements.trailerFrame) {
+      window.open(trailerUrl, '_blank');
+      return;
+    }
+    openTrailerModal(movie);
   } else {
     // Agar treyler mavjud bo'lmasa, foydalanuvchiga xabar beramiz
     alert('Uzr, bu film uchun treyler mavjud emas.');
   }
 }
 
+function normalizeTrailerUrl(url) {
+  if (!url) return '';
+  // Ensure protocol for //ok.ru
+  if (url.startsWith('//')) return 'https:' + url;
+  // If it's a YouTube watch URL, convert to embed
+  try {
+    const u = new URL(url);
+    if ((u.hostname.includes('youtube.com') || u.hostname === 'youtu.be')) {
+      let vid = u.searchParams.get('v');
+      if (!vid && u.hostname === 'youtu.be') vid = u.pathname.slice(1);
+      if (vid) return `https://www.youtube.com/embed/${vid}?autoplay=1`;
+    }
+  } catch {}
+  return url;
+}
+
+function openTrailerModal(movie) {
+  if (!elements.trailerModal || !elements.trailerFrame) return;
+  const src = normalizeTrailerUrl(movie.trailer || movie.video || '');
+  if (!src) return alert('Uzr, bu film uchun treyler topilmadi.');
+  elements.trailerFrame.src = src;
+  elements.trailerModal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTrailerModal() {
+  if (!elements.trailerModal || !elements.trailerFrame) return;
+  elements.trailerModal.setAttribute('aria-hidden', 'true');
+  // Stop video
+  elements.trailerFrame.src = '';
+  document.body.style.overflow = '';
+}
+
 // Modal handling
 function openMovieModal(movie) {
   if (!elements.movieModal) return;
   const id = Number(movie.id);
+  state.currentModalMovieId = id;
   const title = getTitle(movie);
   const poster = getPosterUrl(movie);
   const year = getYear(movie);
@@ -352,6 +554,9 @@ function openMovieModal(movie) {
 
   elements.movieModal.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
+
+  // Render existing reviews for this movie
+  renderReviews(id);
 }
 
 function closeModal() {
@@ -423,19 +628,37 @@ async function searchMovies(query, page = 1) {
   const json = await loadMoviesFromJSON();
   if (json.length) {
     const q = query.toLowerCase();
-    const results = json.filter(m =>
-      getTitle(m).toLowerCase().includes(q) ||
-      (m.description && m.description.toLowerCase().includes(q)) ||
-      (m.details && m.details.toLowerCase().includes(q))
-    );
+    // match by title/desc and also by category/genres names
+    const results = json.filter(m => {
+      const inText = getTitle(m).toLowerCase().includes(q) ||
+        (m.description && m.description.toLowerCase().includes(q)) ||
+        (m.details && m.details.toLowerCase().includes(q));
+      const genresArr = Array.isArray(m.genres) ? m.genres : (Array.isArray(m.category) ? m.category : []);
+      const inGenre = genresArr.some(g => String(g).toLowerCase().includes(q));
+      return inText || inGenre;
+    });
     renderMovies(results);
     toggleEmptyState(results.length === 0);
     return;
   }
   try {
     setLoading(true);
+    // If user searches for a known genre name, prefer discover by genre
+    const genreId = getGenreIdFromQuery(query);
+    if (genreId) {
+      await fetchMoviesByGenre(genreId, page);
+      return;
+    }
+    // If user searches by actor using prefix (e.g., actor:Tom Hardy or @Tom Hardy)
+    const actorQuery = getActorQuery(query);
+    if (actorQuery) {
+      const movies = await searchByActor(actorQuery, page);
+      renderMovies(movies);
+      toggleEmptyState(movies.length === 0);
+      return;
+    }
     const res = await fetch(
-      `${CONFIG.apiUrl}/search/movie?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&query=${encodeURIComponent(query)}&page=${page}`
+      `${CONFIG.apiUrl}/search/movie?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&query=${encodeURIComponent(query)}&page=${page}`
     );
     const data = await res.json();
     renderMovies(data.results || []);
@@ -508,7 +731,7 @@ async function fetchMoviesByGenre(genreId, page = 1) {
   try {
     setLoading(true);
     const res = await fetch(
-      `${CONFIG.apiUrl}/discover/movie?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&with_genres=${genreId}&page=${page}`
+      `${CONFIG.apiUrl}/discover/movie?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&with_genres=${genreId}&page=${page}`
     );
     const data = await res.json();
     renderMovies(data.results || []);
@@ -578,6 +801,7 @@ function calculateSlidePosition(index, currentSlide) {
 }
 function setupCarousel(movies = []) {
   if (!elements.carouselTrack || !movies.length) return;
+  const isMobile = window.innerWidth <= 768;
   state.carouselItems = movies;
   elements.carouselTrack.innerHTML = '';
   if (elements.carouselDots) elements.carouselDots.innerHTML = '';
@@ -587,12 +811,13 @@ function setupCarousel(movies = []) {
     slide.className = `carousel-slide`;
     if (i === 0) slide.classList.add('center');
     
-    // Slayderlarni joylashtirish
+    // Slayderlarni joylashtirish (mobil va desktop uchun bir xil model)
     const position = calculateSlidePosition(i, 0);
     slide.style.left = position.left;
     slide.style.zIndex = position.zIndex;
     slide.style.transform = `scale(${position.scale})`;
     slide.style.opacity = position.opacity;
+    if (position.filter) slide.style.filter = position.filter;
     
     slide.dataset.index = i;
     
@@ -635,7 +860,7 @@ if (watchBtn) {
   });
 }
 
-    if (elements.carouselDots) {
+    if (!isMobile && elements.carouselDots) {
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.className = i === 0 ? 'active' : '';
@@ -660,7 +885,10 @@ if (watchBtn) {
   }, { rootMargin: '200px' });
   slidesBg.forEach(el => io.observe(el));
 
-  startCarouselAutoplay();
+  if (!isMobile) startCarouselAutoplay();
+  // Hide nav buttons on mobile
+  if (elements.carouselPrev) elements.carouselPrev.style.display = isMobile ? 'none' : '';
+  if (elements.carouselNext) elements.carouselNext.style.display = isMobile ? 'none' : '';
 }
 
 function goToSlide(idx) {
@@ -707,6 +935,7 @@ function startCarouselAutoplay() {
   // Avtomatik o'ynash intervalini 3 sekundga o'rnatish
   const autoplayInterval = 3000; // 3 sekund
   
+  if (window.innerWidth <= 768) return; // mobile: disable autoplay
   state.carouselInterval = setInterval(() => {
     if ((!elements.carouselAutoplay || elements.carouselAutoplay.checked) && state.carouselItems && state.carouselItems.length > 0) {
       navigateCarousel(1); // Har doim o'ngga harakatlanish
@@ -730,13 +959,19 @@ function toggleCarouselAutoplay() {
 // UI Event Handlers
 function setLoading(val) {
   state.isLoading = val;
-  if (!elements.loadMoreBtn) return;
-  if (val) {
-    elements.loadMoreBtn.disabled = true;
-    elements.loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
-  } else {
-    elements.loadMoreBtn.disabled = false;
-    elements.loadMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Ko\'proq yuklash';
+  // Button state
+  if (elements.loadMoreBtn) {
+    if (val) {
+      elements.loadMoreBtn.disabled = true;
+      elements.loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Yuklanmoqda...';
+    } else {
+      elements.loadMoreBtn.disabled = false;
+      elements.loadMoreBtn.innerHTML = '<i class="fas fa-plus"></i> Ko\'proq yuklash';
+    }
+  }
+  // Render skeletons if starting to load and grid is empty
+  if (val && elements.moviesGrid && elements.moviesGrid.children.length === 0) {
+    renderSkeletons();
   }
 }
 
@@ -783,9 +1018,23 @@ function handleNavLinkClick(e) {
   if (elements.searchInput) elements.searchInput.value = '';
   if (elements.sortSelect) elements.sortSelect.value = 'popular';
   if (elements.moviesSectionTitle) {
-    elements.moviesSectionTitle.textContent = filter === 'popular' ? 'Popular Filmlar' : 'Filmlar';
+    if (filter === 'all_500') elements.moviesSectionTitle.textContent = '500 ta film';
+    else if (filter === 'top_rated') elements.moviesSectionTitle.textContent = 'Top 10 kinolar';
+    else elements.moviesSectionTitle.textContent = filter === 'popular' ? 'Popular Filmlar' : 'Filmlar';
   }
-  fetchMovies(filter);
+  // Hide/Show Load More for special filters
+  if (elements.loadMoreBtn) {
+    const disable = filter === 'all_500' || filter === 'top_rated';
+    elements.loadMoreBtn.disabled = disable;
+    elements.loadMoreBtn.style.display = disable ? 'none' : '';
+  }
+  if (filter === 'all_500') {
+    fetchAllPopular(500);
+  } else if (filter === 'top_rated') {
+    fetchTopRatedTop10();
+  } else {
+    fetchMovies(filter);
+  }
   
   // Scroll to movies section
   const moviesSection = document.querySelector('.movies-grid');
@@ -855,6 +1104,21 @@ function toggleFavoritesView() {
   }
 }
 
+function toggleWatchlistView() {
+  const isPressed = elements.watchlistToggle && elements.watchlistToggle.getAttribute('aria-pressed') === 'true';
+  if (!isPressed) {
+    elements.watchlistToggle.setAttribute('aria-pressed', 'true');
+    if (elements.watchlistToggle) elements.watchlistToggle.innerHTML = '<i class="fas fa-times"></i>';
+    if (elements.moviesSectionTitle) elements.moviesSectionTitle.textContent = 'Watchlist';
+    showWatchlist();
+  } else {
+    elements.watchlistToggle.setAttribute('aria-pressed', 'false');
+    if (elements.watchlistToggle) elements.watchlistToggle.innerHTML = '<i class="fas fa-bookmark"></i>';
+    if (elements.moviesSectionTitle) elements.moviesSectionTitle.textContent = 'Popular Filmlar';
+    fetchMovies('popular');
+  }
+}
+
 // Show watch history view
 async function showHistory() {
   try {
@@ -900,10 +1164,14 @@ function setupEventListeners() {
   }
   if (elements.modalFavBtn) elements.modalFavBtn.addEventListener('click', toggleFavoriteFromModal);
   if (elements.favoritesToggle) elements.favoritesToggle.addEventListener('click', toggleFavoritesView);
+  if (elements.watchlistToggle) elements.watchlistToggle.addEventListener('click', toggleWatchlistView);
   if (elements.carouselPrev) elements.carouselPrev.addEventListener('click', () => navigateCarousel(-1));
   if (elements.carouselNext) elements.carouselNext.addEventListener('click', () => navigateCarousel(1));
   if (elements.carouselAutoplay) elements.carouselAutoplay.addEventListener('change', toggleCarouselAutoplay);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  if (elements.reviewForm) elements.reviewForm.addEventListener('submit', handleAddReview);
+  if (elements.trailerClose) elements.trailerClose.addEventListener('click', closeTrailerModal);
+  if (elements.trailerModal) elements.trailerModal.addEventListener('click', (e) => { if (e.target === elements.trailerModal) closeTrailerModal(); });
   if (elements.navLinks) {
     elements.navLinks.forEach(link => link.addEventListener('click', handleNavLinkClick));
   }
@@ -944,6 +1212,22 @@ function setupEventListeners() {
   if (elements.footerFAQ) elements.footerFAQ.addEventListener('click', placeholder('FAQ'));
   if (elements.footerSupport) elements.footerSupport.addEventListener('click', placeholder('Qo\'llab-quvvatlash'));
 
+  // Carousel prev/next buttons (desktop only; hidden on mobile via CSS)
+  if (elements.carouselPrev) {
+    elements.carouselPrev.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateCarousel(-1);
+    });
+  }
+  if (elements.carouselNext) {
+    elements.carouselNext.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateCarousel(1);
+    });
+  }
+
   // Carousel touch swipe
   if (elements.carouselTrack) {
     let startX = 0;
@@ -977,9 +1261,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }, 1500);
   
   setupEventListeners();
-  const popular = await fetchPopularMovies();
-  renderMovies(popular);
-  setupCarousel(popular.slice(0, 5));
+  // Force favorites toggle to default (off)
+  if (elements.favoritesToggle) {
+    elements.favoritesToggle.setAttribute('aria-pressed','false');
+    elements.favoritesToggle.innerHTML = '<i class="fas fa-heart"></i>';
+  }
+  if (elements.watchlistToggle) {
+    elements.watchlistToggle.setAttribute('aria-pressed','false');
+    elements.watchlistToggle.innerHTML = '<i class="fas fa-bookmark"></i>';
+  }
+  // Unify initial data load with the same path used by navbar and toggle
+  try {
+    await fetchMovies('popular');
+  } catch (e) {
+    console.error('Init load failed:', e);
+    // As last resort, attempt aggregated popular load
+    await fetchAllPopular(20);
+  }
   
   // Category cards listeners are set in setupEventListeners()
 });
