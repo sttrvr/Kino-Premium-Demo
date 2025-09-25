@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Panel — Kino Premium</title>
+  <meta name="theme-color" content="#0b0b0f" />
+  <link rel="shortcut icon" href="favicon.ico" />
+  <!-- TailwindCSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #0b0b0f; color: #eef2ff; }
+    .card { background: #12131a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; }
+    .muted { color: #9aa4b2; }
+    .badge { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; font-size:0.78rem; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <header class="sticky top-0 z-10 bg-black/60 backdrop-blur border-b border-white/10">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-xl font-bold">Admin Panel</h1>
+      <nav class="flex items-center gap-3">
+        <a href="index.html" class="text-sm text-blue-300 hover:underline"><i class="fas fa-home"></i> Bosh sahifa</a>
+        <button id="signOutAdmin" class="text-sm text-red-300 hover:underline"><i class="fas fa-sign-out-alt"></i> Chiqish</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <!-- Gate -->
+    <div id="gate" class="card p-6 mb-6 hidden">
+      <h2 class="text-lg font-semibold mb-2">Kirish talab qilinadi</h2>
+      <p class="muted text-sm mb-4">Ushbu sahifaga faqat adminlar kira oladi.</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+        <div>
+          <label class="block text-sm mb-1" for="adminUsername">Admin foydalanuvchi</label>
+          <input id="adminUsername" type="text" placeholder="username"
+                 class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" />
+        </div>
+        <div>
+          <label class="block text-sm mb-1" for="adminPassword">Parol</label>
+          <input id="adminPassword" type="password" placeholder="parol"
+                 class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" />
+        </div>
+        <div class="flex gap-2">
+          <button id="signInAdminBasic" class="px-4 py-2 bg-emerald-600 rounded hover:bg-emerald-500" type="button">
+            <i class="fas fa-key"></i> Username/Parol bilan kirish
+          </button>
+          <button id="signUpAdminBasic" class="px-4 py-2 bg-indigo-600 rounded hover:bg-indigo-500" type="button">
+            <i class="fas fa-user-plus"></i> Ro'yxatdan o'tish (Admin)
+          </button>
+        </div>
+      </div>
+      <p class="muted text-xs mt-3">Faqat username/parol orqali kirish yoqilgan. Xavfsizlik uchun foydalanuvchini baholash va ruxsatlar Firestore qoidalari orqali ham cheklanadi.</p>
+    </div>
+
+    <!-- Dashboard -->
+    <section id="dashboard" class="space-y-6 hidden">
+      <!-- Stats cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="card p-4">
+          <div class="muted text-sm">Umumiy ro'yxatdan o'tganlar</div>
+          <div id="statTotalUsers" class="text-2xl font-bold">—</div>
+        </div>
+        <div class="card p-4">
+          <div class="muted text-sm">Oxirgi 24 soatda qo'shilganlar</div>
+          <div id="statUsers24h" class="text-2xl font-bold">—</div>
+        </div>
+        <div class="card p-4">
+          <div class="muted text-sm">Aktiv foydalanuvchilar (7 kun)</div>
+          <div id="statActive7d" class="text-2xl font-bold">—</div>
+        </div>
+        <div class="card p-4">
+          <div class="muted text-sm">Ban qilingan / Faol emas</div>
+          <div id="statBannedInactive" class="text-2xl font-bold">—</div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-semibold">Foydalanuvchi o'sishi (30 kun)</h3>
+          </div>
+          <canvas id="chartUsers"></canvas>
+        </div>
+        <div class="card p-4">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="font-semibold">Janrlar bo'yicha film soni</h3>
+          </div>
+          <canvas id="chartGenres"></canvas>
+        </div>
+      </div>
+
+      <!-- Users table -->
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-lg">Foydalanuvchilar</h3>
+          <input id="userSearch" type="search" placeholder="Qidiruv..." class="px-3 py-2 rounded bg-white/5 border border-white/10 text-sm" />
+        </div>
+        <div class="overflow-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left muted border-b border-white/10">
+              <tr>
+                <th class="py-2 pr-4">ID</th>
+                <th class="py-2 pr-4">Ism</th>
+                <th class="py-2 pr-4">Email</th>
+                <th class="py-2 pr-4">Ro'yxatdan o'tgan</th>
+                <th class="py-2 pr-4">Oxirgi login</th>
+                <th class="py-2 pr-4">Status</th>
+              </tr>
+            </thead>
+            <tbody id="usersTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Content management -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="card p-4">
+          <h3 class="font-semibold text-lg mb-3">Yangi film/serial qo'shish</h3>
+          <form id="contentCreateForm" class="space-y-2">
+            <input id="cTitle" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Nomi" />
+            <input id="cYear" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Yili" />
+            <input id="cGenres" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Janrlar (vergul bilan)" />
+            <input id="cPoster" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Poster URL" />
+            <button class="px-4 py-2 bg-green-600 rounded hover:bg-green-500" type="submit"><i class="fas fa-plus"></i> Qo'shish</button>
+          </form>
+          <p id="contentCreateMsg" class="muted text-sm mt-2"></p>
+        </div>
+        <div class="card p-4">
+          <h3 class="font-semibold text-lg mb-3">Kontentni tahrirlash/o'chirish</h3>
+          <div class="flex gap-2 mb-2">
+            <input id="editId" class="flex-1 px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Kontent ID" />
+            <button id="loadContentBtn" class="px-3 py-2 bg-blue-600 rounded">Yuklash</button>
+          </div>
+          <form id="contentEditForm" class="space-y-2 hidden">
+            <input id="eTitle" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Nomi" />
+            <input id="eYear" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Yili" />
+            <input id="eGenres" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Janrlar (vergul bilan)" />
+            <input id="ePoster" class="w-full px-3 py-2 rounded bg-white/5 border border-white/10" placeholder="Poster URL" />
+            <div class="flex gap-2">
+              <button class="px-4 py-2 bg-yellow-600 rounded hover:bg-yellow-500" type="submit"><i class="fas fa-save"></i> Saqlash</button>
+              <button id="deleteContentBtn" class="px-4 py-2 bg-red-600 rounded hover:bg-red-500" type="button"><i class="fas fa-trash"></i> O'chirish</button>
+            </div>
+          </form>
+          <p id="contentEditMsg" class="muted text-sm mt-2"></p>
+        </div>
+      </div>
+
+      <!-- Backend monitoring (placeholders) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="card p-4">
+          <div class="muted text-sm">Server holati</div>
+          <div id="serverStatus" class="text-lg font-semibold">Unknown</div>
+        </div>
+        <div class="card p-4">
+          <div class="muted text-sm">API so'rovlar</div>
+          <div id="apiStats" class="text-lg font-semibold">— / — muvaffaqiyatli • — xatoli</div>
+        </div>
+        <div class="card p-4">
+          <div class="muted text-sm">Resurslar</div>
+          <div id="resStats" class="text-lg font-semibold">CPU —% • RAM —% • DB OK</div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="admin.js"></script>
+</body>
+</html>

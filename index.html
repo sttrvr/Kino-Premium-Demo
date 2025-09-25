@@ -64,6 +64,7 @@
             <li><a href="#" class="nav-link" data-filter="now_playing" id="navNowPlaying"><i class="fas fa-film"></i> Kinolar</a></li>
             <li><a href="#" class="nav-link" data-filter="top_rated" id="navTopRated"><i class="fas fa-star"></i> Top</a></li>
             <li><a href="#" class="nav-link" data-filter="all_500" id="navAllMovies"><i class="fas fa-layer-group"></i> Barchasi</a></li>
+            <li><a href="admin.html" class="nav-link" id="adminLink" style="display:none"><i class="fas fa-shield-halved"></i> Admin</a></li>
           </ul>
         </nav>
 
@@ -75,6 +76,8 @@
                 <i class="fas fa-search"></i>
               </button>
             </div>
+            <!-- Live search suggestions -->
+            <div id="searchSuggestions" class="search-suggestions" hidden></div>
           </form>
 
           <button id="favoritesToggle" class="btn icon-btn" aria-pressed="false" aria-label="Sevimlilar">
@@ -242,23 +245,23 @@
           <div class="modal-body" style="width:100%">
             <h2 id="authModalTitle">Sign In</h2>
             <form id="authForm" class="auth-form">
+              <div class="form-row" id="usernameRow">
+                <label for="authUsername">Username</label>
+                <input id="authUsername" name="username" type="text" autocomplete="username" placeholder="foydalanuvchi" required />
+              </div>
               <div class="form-row" id="nameRow" hidden>
                 <label for="authName">Full name</label>
                 <input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />
               </div>
               <div class="form-row">
-                <label for="authEmail">Email</label>
-                <input id="authEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required />
-              </div>
-              <div class="form-row">
-                <label for="authPassword">Password</label>
-                <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+                <label for="authPassword">Parol</label>
+                <input id="authPassword" name="password" type="password" autocomplete="current-password" placeholder="Parolingiz" required />
               </div>
               <button id="authSubmitBtn" type="submit" class="btn primary" style="width:100%">
                 <i class="fas fa-unlock"></i> Continue
               </button>
               <p class="muted switch-auth" id="switchAuthText">
-                Don't have an account? <a href="#" id="switchToSignUp">Sign Up</a>
+                Hisobingiz yo'qmi? <a href="#" id="switchToSignUp">Ro'yxatdan o'tish</a>
               </p>
             </form>
             <p class="muted" style="margin: 0.75rem 0">Yoki ijtimoiy tarmoq orqali:</p>
@@ -339,12 +342,15 @@
   </div> <!-- /#app -->
 
   <script src="theme.js" defer></script>
-  <script src="app.js" defer></script>
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDKs (load before comments/app) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
   <!-- Your Firebase config (fill in keys) -->
   <script src="firebase-config.js" defer></script>
+  <!-- Global comments module (uses Firestore if available, else localStorage) -->
+  <script src="comments.js" defer></script>
+  <script src="app.js" defer></script>
   <!-- Auth logic to handle Google/GitHub sign-in -->
   <script src="auth.js" defer></script>
   <!-- Toast container -->
@@ -361,5 +367,6 @@
       });
     }
   </script>
+  
 </body>
 </html>

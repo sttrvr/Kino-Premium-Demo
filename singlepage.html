@@ -36,6 +36,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <script src="theme.js" defer></script>
+  <!-- Firebase SDKs (for global comments) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
+  <script src="firebase-config.js" defer></script>
+  <!-- Global comments module -->
+  <script src="comments.js" defer></script>
   <script src="single.js" defer></script>
   <style>
     .movie-card-big {
@@ -118,6 +125,16 @@
       height: 500px;
       display: block;
     }
+
+    /* Star rating styles */
+    .star-rating { display: inline-flex; gap: 6px; align-items: center; user-select: none; }
+    .star-rating .star {
+      width: 28px; height: 28px; border: none; background: transparent; cursor: pointer; color: #666;
+      font-size: 26px; line-height: 1; padding: 0; transition: transform 0.15s ease, color 0.15s ease;
+    }
+    .star-rating .star:hover { transform: scale(1.1); }
+    .star-rating .star.active, .star-rating .star.filled { color: #ffb300; }
+    .rating-hint { color: var(--muted); font-size: 0.9rem; margin-left: 8px; }
 
     /* Similar movies horizontal scroller */
     #similarSection { margin: 2rem 0; }
@@ -246,23 +263,39 @@
                 <h3 style="margin-bottom:0.5rem">Sharh va reyting</h3>
                 <form id="reviewFormSingle" class="auth-form" style="margin:0 0 1rem 0">
                   <div class="form-row">
-                    <label for="reviewRatingSingle">Reyting</label>
-                    <select id="reviewRatingSingle" required>
-                      <option value="">Tanlang</option>
-                      <option value="5">5 - A'lo</option>
-                      <option value="4">4 - Yaxshi</option>
-                      <option value="3">3 - O'rtacha</option>
-                      <option value="2">2 - Yomonroq</option>
-                      <option value="1">1 - Juda yomon</option>
-                    </select>
-                  </div>
-                  <div class="form-row">
-                    <label for="reviewTextSingle">Fikr</label>
-                    <textarea id="reviewTextSingle" rows="3" placeholder="Fikringizni yozing..." style="resize:vertical;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:0.6rem 0.75rem"></textarea>
+                    <label>Reyting</label>
+                    <div id="starRating" class="star-rating" aria-label="Yulduzcha bilan baholang" role="radiogroup">
+                      <button type="button" class="star" data-value="1" aria-label="1 yulduz">★</button>
+                      <button type="button" class="star" data-value="2" aria-label="2 yulduz">★</button>
+                      <button type="button" class="star" data-value="3" aria-label="3 yulduz">★</button>
+                      <button type="button" class="star" data-value="4" aria-label="4 yulduz">★</button>
+                      <button type="button" class="star" data-value="5" aria-label="5 yulduz">★</button>
+                      <span id="ratingHint" class="rating-hint">Reytingni tanlang</span>
+                    </div>
                   </div>
                   <button type="submit" class="btn primary"><i class="fas fa-star"></i> Yuborish</button>
                 </form>
-                <ul id="reviewsListSingle" style="display:flex;flex-direction:column;gap:0.75rem;padding-left:0"></ul>
+                <!-- Local reviews list removed as requested; using global comments below -->
+              </section>
+
+              <hr style="margin:1rem 0;border-color:rgba(255,255,255,0.1)">
+              <section id="commentsSection" aria-label="Foydalanuvchi izohlari" style="margin-top:1rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
+                  <h3 style="margin:0">Izohlar</h3>
+                  <button id="pinMyCommentBtn" class="btn ghost" type="button" title="Oxirgi izohingizni yuqoriga mahkamlash (Admin)"><i class="fas fa-thumbtack"></i> Mening izohimni pinla</button>
+                </div>
+                <form id="commentForm" class="auth-form" style="margin:0 0 1rem 0">
+                  <div class="form-row">
+                    <label for="commentName">Ism (ixtiyoriy)</label>
+                    <input id="commentName" type="text" placeholder="Ismingiz">
+                  </div>
+                  <div class="form-row">
+                    <label for="commentText">Izoh</label>
+                    <textarea id="commentText" rows="3" placeholder="Fikringizni yozing..." style="resize:vertical;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:0.6rem 0.75rem" required></textarea>
+                  </div>
+                  <button type="submit" class="btn primary"><i class="fas fa-comment"></i> Yuborish</button>
+                </form>
+                <ul id="commentsList" style="display:flex;flex-direction:column;gap:0.75rem;padding-left:0"></ul>
               </section>
             </div>
           </div>
@@ -507,15 +540,37 @@
             }
           </script>
           <script>
-            // === Reviews on single page ===
-            function getStoredReviews(){try{const r=localStorage.getItem('reviews')||'{}';const o=JSON.parse(r);return o&&typeof o==='object'?o:{}}catch{return{}}}
-            function saveStoredReviews(o){try{localStorage.setItem('reviews',JSON.stringify(o))}catch{}}
-            function renderReviewsSingle(mid){const listEl=document.getElementById('reviewsListSingle');if(!listEl) return;const all=getStoredReviews();const list=Array.isArray(all[mid])?all[mid]:[];listEl.innerHTML='';if(!list.length){const li=document.createElement('li');li.style.color='var(--muted)';li.textContent="Hozircha sharh yo'q.";listEl.appendChild(li);return;}list.forEach(r=>{const li=document.createElement('li');li.style.background='var(--bg-light)';li.style.border='1px solid rgba(255,255,255,0.08)';li.style.borderRadius='10px';li.style.padding='0.6rem 0.75rem';li.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><strong>⭐ ${r.rating}</strong><span style="color:var(--muted);font-size:0.8rem">${new Date(r.at).toLocaleString()}</span></div>${r.text?`<div>${r.text}</div>`:''}`;listEl.appendChild(li);});}
+            // === Reviews on single page (star-based) -> submit to global Comments ===
             document.addEventListener('DOMContentLoaded',()=>{
               const mid=Number(localStorage.getItem('selectedMovieId'))||0;
-              renderReviewsSingle(mid);
+              // Star rating logic
+              let selected=0; const stars=Array.from(document.querySelectorAll('#starRating .star')); const hint=document.getElementById('ratingHint');
+              function paint(n){stars.forEach(s=>{const v=Number(s.dataset.value); s.classList.toggle('filled', v<=n); s.classList.toggle('active', v<=n);}); if(hint) hint.textContent = n?`Reyting: ${n}/5`:'Reytingni tanlang';}
+              stars.forEach(s=>{
+                s.addEventListener('mouseenter',()=>paint(Number(s.dataset.value)));
+                s.addEventListener('mouseleave',()=>paint(selected||0));
+                s.addEventListener('click',()=>{selected=Number(s.dataset.value)||0; paint(selected||0);});
+              });
+              paint(0);
               const form=document.getElementById('reviewFormSingle');
-              if(form){form.addEventListener('submit',(e)=>{e.preventDefault();const rating=Number(document.getElementById('reviewRatingSingle')?.value||0);const text=(document.getElementById('reviewTextSingle')?.value||'').trim();if(!rating) return;const all=getStoredReviews();const list=Array.isArray(all[mid])?all[mid]:[];list.unshift({rating,text,at:new Date().toISOString()});all[mid]=list.slice(0,100);saveStoredReviews(all);const t=document.getElementById('reviewTextSingle');if(t)t.value='';const rr=document.getElementById('reviewRatingSingle');if(rr)rr.value='';renderReviewsSingle(mid);});}
+              if(form){form.addEventListener('submit',async (e)=>{
+                e.preventDefault();
+                const rating=selected||0;
+                if(!rating){ if(hint){hint.textContent='Iltimos, reytingni tanlang';} return; }
+                try {
+                  if (window.Comments && mid) {
+                    // Use optional name from comments section if present
+                    const name = (document.getElementById('commentName')?.value || '').trim();
+                    const res = await window.Comments.add(mid, { name, text: `Reyting: ${rating}/5`, pinned: true, admin: true });
+                    // Fallback: ensure pinned even if provider ignored flags
+                    if (res && res.id) {
+                      await window.Comments.pin(mid, res.id, { pinned: true, admin: true });
+                    }
+                  }
+                } finally {
+                  selected=0; paint(0);
+                }
+              });}
             });
           </script>
         </section>
@@ -691,6 +746,40 @@
         console.error('Singlepage init error:', err);
         alert('Xatolik: ' + err.message);
       }
+      // Mount global comments UI
+      try {
+        const mid = Number(localStorage.getItem('selectedMovieId')) || 0;
+        if (mid && window.Comments) {
+          window.Comments.mountSinglePage({
+            movieId: mid,
+            formEl: document.getElementById('commentForm'),
+            nameInput: document.getElementById('commentName'),
+            textInput: document.getElementById('commentText'),
+            listEl: document.getElementById('commentsList')
+          });
+          // Pin my comment (admin)
+          const pinBtn = document.getElementById('pinMyCommentBtn');
+          if (pinBtn) {
+            pinBtn.addEventListener('click', () => {
+              const name = (document.getElementById('commentName')?.value || '').trim();
+              let unsub = null;
+              unsub = window.Comments.subscribe(mid, async (list) => {
+                try {
+                  const target = (name ? list.find(x => (x.name||'').trim() === name) : list[0]) || null;
+                  if (target && target.id) {
+                    await window.Comments.pin(mid, target.id, { pinned: true, admin: true });
+                    alert('Izoh pin qilindi va Admin belgilandi.');
+                  } else {
+                    alert('Izoh topilmadi. Avval izoh yozing yoki ismingizni kiriting.');
+                  }
+                } finally {
+                  if (typeof unsub === 'function') unsub();
+                }
+              });
+            });
+          }
+        }
+      } catch(e){ console.debug('Comments init skipped', e); }
     });
   </script>
   <script>

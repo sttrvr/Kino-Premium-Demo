@@ -157,6 +157,7 @@ const elements = {
   moviesGrid: document.getElementById('moviesGrid'),
   searchForm: document.getElementById('searchForm'),
   searchInput: document.getElementById('searchInput'),
+  searchSuggestions: document.getElementById('searchSuggestions'),
   loadMoreBtn: document.getElementById('loadMore'),
   sortSelect: document.getElementById('sortSelect'),
   movieModal: document.getElementById('movieModal'),
@@ -292,6 +293,8 @@ function renderMovies(movies = [], append = false) {
   });
   toggleEmptyState(movies.length === 0 && !append);
   state.currentMovies = append ? [...state.currentMovies, ...movies] : movies;
+  // Update global comment counts for visible cards (non-blocking)
+  try { updateCommentBadges(state.currentMovies); } catch {}
 }
 
 // Skeletons for loading state
@@ -434,6 +437,39 @@ function createMovieCard(movie) {
   }
 
   return li;
+}
+
+// Update comment count badges using global Comments API
+async function updateCommentBadges(movies){
+  if (!Array.isArray(movies) || !movies.length) return;
+  if (typeof window === 'undefined' || !window.Comments) return; // comments module not loaded yet
+  // Limit concurrent fetches
+  const limit = 10;
+  let index = 0;
+  async function next(){
+    if (index >= movies.length) return;
+    const m = movies[index++];
+    const id = Number(m.id);
+    try {
+      const count = await window.Comments.getCount(id);
+      const card = document.querySelector(`.movie-card[data-id="${id}"]`);
+      if (card) {
+        const meta = card.querySelector('.meta');
+        if (meta) {
+          // remove existing badge
+          const old = meta.querySelector('.comment-badge');
+          if (old) old.remove();
+          const badge = document.createElement('span');
+          badge.className = 'comment-badge';
+          badge.innerHTML = `<i class="fas fa-comment"></i> ${count}`;
+          meta.appendChild(badge);
+        }
+      }
+    } catch {}
+    next();
+  }
+  const workers = Math.min(limit, movies.length);
+  for (let i=0;i<workers;i++) next();
 }
 
 // "Ko'rish" funksiyasi - singlepage.html ga yo'naltiradi
@@ -987,6 +1023,74 @@ function handleSearch(e) {
   }
 }
 
+// Live suggestions (debounced) with token-based matching
+let suggestTimer = null;
+async function handleSearchInput(){
+  if (!elements.searchInput || !elements.searchSuggestions) return;
+  const q = elements.searchInput.value.trim();
+  clearTimeout(suggestTimer);
+  if (!q) { hideSuggestions(); return; }
+  suggestTimer = setTimeout(async () => {
+    const list = await getSuggestionResults(q);
+    renderSuggestions(list.slice(0,8));
+  }, 180);
+}
+
+function hideSuggestions(){
+  if (elements.searchSuggestions) {
+    elements.searchSuggestions.innerHTML = '';
+    elements.searchSuggestions.hidden = true;
+  }
+}
+
+async function getSuggestionResults(query){
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return [];
+  const local = await loadMoviesFromJSON();
+  if (local.length){
+    return local.filter(m => {
+      const title = (getTitle(m) || '').toLowerCase();
+      const desc = (getDescription(m) || '').toLowerCase();
+      const extra = [(m.year||''), ...(Array.isArray(m.genres)?m.genres:[]), (m.type||'')].join(' ').toLowerCase();
+      const hay = title + ' ' + desc + ' ' + extra;
+      return tokens.every(t => hay.includes(t));
+    });
+  }
+  try {
+    const res = await fetch(`${CONFIG.apiUrl}/search/movie?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&query=${encodeURIComponent(query)}&page=1`);
+    const data = await res.json();
+    return data.results || [];
+  } catch { return []; }
+}
+
+function renderSuggestions(list){
+  const box = elements.searchSuggestions;
+  if (!box) return;
+  box.innerHTML = '';
+  if (!list.length){ box.hidden = true; return; }
+  list.forEach(m => {
+    const id = Number(m.id);
+    const title = getTitle(m);
+    const year = getYear(m);
+    const rating = getRating(m);
+    const poster = getPosterUrl(m);
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.innerHTML = `
+      <div class="thumb"><img src="${poster}" alt="${title}"></div>
+      <div class="text">
+        <div class="title">${title}</div>
+        <div class="meta">${year} • ⭐ ${rating}</div>
+      </div>`;
+    item.addEventListener('click', () => {
+      try { localStorage.setItem('selectedMovieId', String(id)); } catch {}
+      window.location.href = 'singlepage.html';
+    });
+    box.appendChild(item);
+  });
+  box.hidden = false;
+}
+
 function handleSortChange(e) {
   const val = e ? e.target.value : '';
   const moviesArr = [...state.currentMovies];
@@ -1156,6 +1260,15 @@ async function showHistory() {
 // Setup event listeners
 function setupEventListeners() {
   if (elements.searchForm) elements.searchForm.addEventListener('submit', handleSearch);
+  if (elements.searchInput) {
+    elements.searchInput.addEventListener('input', handleSearchInput);
+    elements.searchInput.addEventListener('focus', handleSearchInput);
+  }
+  document.addEventListener('click', (e)=>{
+    if (!elements.searchSuggestions) return;
+    const within = e.target === elements.searchSuggestions || elements.searchSuggestions.contains(e.target) || e.target === elements.searchInput;
+    if (!within) hideSuggestions();
+  });
   if (elements.loadMoreBtn) elements.loadMoreBtn.addEventListener('click', loadMoreMovies);
   if (elements.sortSelect) elements.sortSelect.addEventListener('change', handleSortChange);
   if (elements.modalClose) elements.modalClose.addEventListener('click', closeModal);
@@ -1280,4 +1393,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   // Category cards listeners are set in setupEventListeners()
+  // Admin havolasini faqat admin foydalanuvchilar uchun ko'rsatish
+  try {
+    const adminLink = document.getElementById('adminLink');
+    if (adminLink && window.firebase && firebase.auth && firebase.firestore) {
+      const auth = firebase.auth();
+      const db = firebase.firestore();
+      auth.onAuthStateChanged(async (user) => {
+        try {
+          if (!user) { adminLink.style.display = 'none'; return; }
+          const doc = await db.collection('users').doc(user.uid).get();
+          const data = doc.exists ? doc.data() : null;
+          const isAdmin = !!(data && data.isAdmin === true);
+          adminLink.style.display = isAdmin ? '' : 'none';
+          adminLink.title = isAdmin ? 'Admin panel' : '';
+        } catch {
+          adminLink.style.display = 'none';
+        }
+      });
+    }
+    // Also allow local/basic-admin sessions to see the Admin link
+    const updateAdminLinkLocal = () => {
+      const adminLink2 = document.getElementById('adminLink');
+      if (!adminLink2) return;
+      try {
+        const basicAdmin = sessionStorage.getItem('basicAdmin') === 'true';
+        const localUser = JSON.parse(localStorage.getItem('local_user') || 'null');
+        const adminUsers = JSON.parse(localStorage.getItem('admin_users') || '[]');
+        // Now show Admin link for ANY signed local user as requested
+        const isLocalAdmin = !!(basicAdmin || localUser || (adminUsers && adminUsers.length > 0));
+        if (isLocalAdmin) {
+          adminLink2.style.display = '';
+          adminLink2.title = 'Admin panel (lokal)';
+        } else if (!(window.firebase && firebase.auth && firebase.firestore)) {
+          // If Firebase not available, hide by default unless local admin
+          adminLink2.style.display = 'none';
+        }
+      } catch {}
+    };
+    updateAdminLinkLocal();
+    window.addEventListener('storage', (e) => {
+      if (['basicAdmin','local_user','admin_users'].includes(e.key)) updateAdminLinkLocal();
+    });
+  } catch {}
 });

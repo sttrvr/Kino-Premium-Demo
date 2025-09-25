@@ -3,11 +3,10 @@
 // Then replace the placeholders and keep this file in the project root.
 
 window.FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID",
-  // Optional but recommended
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
+  apiKey: "AIzaSyDAzw1IXANnZOloc-oDz1GIr0M91SBShlk",
+  authDomain: "coffee-spark-ai-barista-883d8.firebaseapp.com",
+  projectId: "coffee-spark-ai-barista-883d8",
+  storageBucket: "coffee-spark-ai-barista-883d8.firebasestorage.app",
+  messagingSenderId: "914762127047",
+  appId: "1:914762127047:web:95b210725b54eb73b250e2",
 };

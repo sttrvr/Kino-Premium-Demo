@@ -75,8 +75,8 @@
     function wireSwitchLinks() {
       const toSignUp = document.getElementById('switchToSignUp');
       const toSignIn = document.getElementById('switchToSignIn');
-      if (toSignUp) toSignUp.addEventListener('click', (e) => { e.preventDefault(); openAuth('signup'); });
-      if (toSignIn) toSignIn.addEventListener('click', (e) => { e.preventDefault(); openAuth('signin'); });
+      if (toSignUp) toSignUp.addEventListener('click', (e) => { e.preventDefault(); setMode('signup'); });
+      if (toSignIn) toSignIn.addEventListener('click', (e) => { e.preventDefault(); setMode('signin'); });
     }
 
     if (authModalClose) authModalClose.addEventListener('click', closeAuth);
@@ -107,15 +107,41 @@
 
     // Firebase initialization (compat) if config is provided
     let auth = null;
+    let db = null;
     if (window.FIREBASE_CONFIG && window.firebase) {
       try {
         const app = (firebase.apps && firebase.apps.length)
           ? firebase.app()
           : firebase.initializeApp(window.FIREBASE_CONFIG);
         auth = firebase.auth(app);
+        if (firebase.firestore) db = firebase.firestore(app);
       } catch (e) {
         console.warn('Firebase init failed:', e);
       }
+    }
+
+    // Local session helpers (for email-less sign in)
+    function getLocalUser(){ try { return JSON.parse(localStorage.getItem('local_user')||'null'); } catch { return null; } }
+    function setLocalUser(u){ try { localStorage.setItem('local_user', JSON.stringify(u)); } catch {} }
+    function clearLocalUser(){ try { localStorage.removeItem('local_user'); } catch {} }
+    // Local users_basic fallback
+    function getLocalUsersBasic(){ try { return JSON.parse(localStorage.getItem('users_basic')||'[]'); } catch { return []; } }
+    function saveLocalUsersBasic(arr){ try { localStorage.setItem('users_basic', JSON.stringify(arr)); } catch {} }
+    function findLocalUserBasic(username){ const list=getLocalUsersBasic(); return list.find(u=>u.username===username); }
+
+    // Crypto helpers (SHA-256 + random salt)
+    async function sha256Hex(str){
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(str));
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+    function randomSalt(len=16){
+      const arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+    }
+    async function hashPasswordWithSalt(password, salt){
+      return sha256Hex(`${salt}:${password}`);
     }
 
     // Handle form submit
@@ -137,31 +163,103 @@
     if (authForm) authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = /** @type {HTMLInputElement} */(document.getElementById('authEmail'))?.value?.trim();
+      const username = /** @type {HTMLInputElement} */(document.getElementById('authUsername'))?.value?.trim();
       const password = /** @type {HTMLInputElement} */(document.getElementById('authPassword'))?.value || '';
       const fullName = /** @type {HTMLInputElement} */(document.getElementById('authName'))?.value?.trim();
 
-      if (!email || !isValidEmail(email)) return showToast('Xatolik', 'Yaroqli email kiriting');
-      if (!password || password.length < 6) return showToast('Xatolik', 'Parol kamida 6 ta belgidan iborat bo‘lsin');
+      // Validation: Email butunlay majburiy emas
+      if (!username) return showToast('Xatolik', 'Username kiriting');
+      if (!password) return showToast('Xatolik', 'Parolni kiriting');
 
-      if (!auth) {
-        showToast('Sozlash kerak', 'Iltimos, firebase-config.js faylida Firebase sozlamalarini to‘ldiring');
-        return;
-      }
+      // Firebase talabini faqat email bilan ishlaganda tekshiramiz
 
       try {
         setAuthLoading(true);
         if (currentMode === 'signup') {
-          if (!fullName) {
-            showToast('Xatolik', 'Ismni kiriting');
-            return;
+          // Username/Parol bilan ro'yxatdan o'tish: Firestore (users_basic) yoki fallback local
+          if (!fullName) { showToast('Xatolik', 'Ismni kiriting'); return; }
+          let usedFirestore = false;
+          if (db) {
+            try {
+              const docRef = db.collection('users_basic').doc(username);
+              const snap = await docRef.get();
+              if (snap.exists) { showToast('Xatolik', 'Bu username band. Boshqasini tanlang.'); return; }
+              const salt = randomSalt();
+              const passwordHash = await hashPasswordWithSalt(password, salt);
+              await docRef.set({ username, passwordHash, salt, name: fullName, createdAt: new Date().toISOString(), status: 'active' });
+              usedFirestore = true;
+              showToast('Muvaffaqiyatli', 'Ro‘yxatdan o‘tildi');
+            } catch (permErr) {
+              console.warn('Firestore signup blocked, falling back to local:', permErr);
+              showToast('Eslatma', 'Server ruxsatlari cheklangan. Lokal rejimda ro‘yxatdan o‘tyapsiz.');
+            }
           }
-          const cred = await auth.createUserWithEmailAndPassword(email, password);
-          if (cred.user) {
-            await cred.user.updateProfile({ displayName: fullName });
+          if (!usedFirestore) {
+            const list = getLocalUsersBasic();
+            if (list.find(u=>u.username===username)) { showToast('Xatolik', 'Bu username band. Boshqasini tanlang.'); return; }
+            const salt = randomSalt();
+            const passwordHash = await hashPasswordWithSalt(password, salt);
+            list.push({ username, passwordHash, salt, name: fullName, createdAt: new Date().toISOString(), status: 'active' });
+            saveLocalUsersBasic(list);
+            showToast('Muvaffaqiyatli', 'Ro‘yxatdan o‘tildi (lokal)');
           }
-          showToast('Muvaffaqiyatli', 'Ro‘yxatdan o‘tish yakunlandi');
+          // Auto sign in after sign up
+          setLocalUser({ displayName: fullName, at: new Date().toISOString(), username });
+          updateUIForUser({ displayName: fullName });
         } else {
-          await auth.signInWithEmailAndPassword(email, password);
+          // Sign In: Firestore users_basic bo'yicha tekshirish, topilmasa Sign Up taklif qilish
+          let profile = null; let triedFirestore = false; let fsError = null;
+          if (db) {
+            try {
+              triedFirestore = true;
+              const snap = await db.collection('users_basic').doc(username).get();
+              if (snap.exists) profile = snap.data();
+            } catch (eGet) {
+              fsError = eGet;
+              console.warn('Firestore signin blocked, will fallback to local:', eGet);
+            }
+          }
+          if (!profile) {
+            // Fallback to local
+            const local = findLocalUserBasic(username);
+            if (local) profile = local;
+          }
+          if (!profile) {
+            if (confirm('Bunday username topilmadi. Ro\'yxatdan o\'tasizmi?')) {
+              // emulate switch to signup mode requirements
+              showToast('Eslatma', 'Ro\'yxatdan o\'tish uchun ismni ham kiriting');
+              return; // User should switch to Sign Up from UI
+            } else {
+              const append = (triedFirestore && fsError) ? ' (Server ruxsatlari cheklangan bo\'lishi mumkin)' : '';
+              showToast('Xatolik', 'Kirish amalga oshmadi' + append);
+              return;
+            }
+          }
+          // Banned enforcement
+          if (profile.status === 'banned') { showToast('Xatolik', 'Hisobingiz bloklangan.'); return; }
+          // Verify password (migrate plain -> hash if needed)
+          if (profile.passwordHash && profile.salt) {
+            const calc = await hashPasswordWithSalt(password, profile.salt);
+            if (calc !== profile.passwordHash) { showToast('Xatolik', 'Parol noto\'g\'ri.'); return; }
+          } else if (profile.password) {
+            // Legacy plain migration
+            if (String(profile.password) !== String(password)) { showToast('Xatolik', 'Parol noto\'g\'ri.'); return; }
+            const newSalt = randomSalt();
+            const newHash = await hashPasswordWithSalt(password, newSalt);
+            if (db && triedFirestore) {
+              try { await db.collection('users_basic').doc(username).set({ passwordHash: newHash, salt: newSalt, password: null }, { merge: true }); } catch {}
+            } else {
+              // migrate local
+              const list = getLocalUsersBasic();
+              const idx = list.findIndex(u=>u.username===username);
+              if (idx>=0) { list[idx].passwordHash=newHash; list[idx].salt=newSalt; delete list[idx].password; saveLocalUsersBasic(list); }
+            }
+          } else {
+            // No password info at all (e.g., OAuth-only account) – allow sign-in if OAuth session exists
+          }
+          const disp = profile.name || fullName || username;
+          setLocalUser({ displayName: disp, at: new Date().toISOString(), username });
+          updateUIForUser({ displayName: disp });
           showToast('Xush kelibsiz', 'Kirish muvaffaqiyatli');
         }
         closeAuth();
@@ -175,30 +273,59 @@
       }
     });
 
-    if (googleBtn) googleBtn.addEventListener('click', comingSoon);
-    if (githubBtn) githubBtn.addEventListener('click', comingSoon);
+    async function afterProviderLogin(user){
+      try {
+        const displayName = user.displayName || (user.email ? user.email.split('@')[0] : 'Foydalanuvchi');
+        const username = user.uid; // stable unique id
+        const photoURL = user.photoURL || '';
+        // Upsert users_basic in Firestore if available
+        if (db) {
+          const ref = db.collection('users_basic').doc(username);
+          const snap = await ref.get();
+          const nowIso = new Date().toISOString();
+          if (!snap.exists) {
+            await ref.set({ username, name: displayName, password: null, createdAt: nowIso, lastLoginAt: nowIso, provider: user.providerData?.[0]?.providerId || 'oauth', photoURL });
+          } else {
+            await ref.set({ lastLoginAt: nowIso, photoURL }, { merge: true });
+          }
+        }
+        setLocalUser({ displayName, at: new Date().toISOString(), username, photoURL });
+        updateUIForUser({ displayName, photoURL });
+        showToast('Xush kelibsiz', 'Hisobga kirildi');
+        closeAuth();
+      } catch (e) {
+        console.warn('afterProviderLogin error:', e);
+      }
+    }
+
+    async function signInWithProvider(provider){
+      if (!auth) { showToast('Sozlash kerak', 'Firebase sozlamalarini to‘ldiring'); return; }
+      try {
+        setAuthLoading(true);
+        const cred = await auth.signInWithPopup(provider);
+        if (cred && cred.user) {
+          await afterProviderLogin(cred.user);
+        }
+      } catch (e) {
+        console.error('Provider signin error:', e);
+        const msg = e && e.message ? e.message : 'Kirishda xatolik';
+        showToast('Xatolik', msg);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    if (googleBtn) googleBtn.addEventListener('click', async () => {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      await signInWithProvider(provider);
+    });
+    if (githubBtn) githubBtn.addEventListener('click', async () => {
+      const provider = new firebase.auth.GithubAuthProvider();
+      await signInWithProvider(provider);
+    });
 
     // Reset password flow
-    if (forgotPasswordLink) {
-      forgotPasswordLink.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const email = /** @type {HTMLInputElement} */(document.getElementById('authEmail'))?.value?.trim();
-        if (!email || !isValidEmail(email)) {
-          showToast('Xatolik', 'Avval to‘g‘ri email kiriting');
-          return;
-        }
-        if (!auth) {
-          showToast('Sozlash kerak', 'Firebase sozlamalarini to‘ldiring');
-          return;
-        }
-        try {
-          await auth.sendPasswordResetEmail(email);
-          showToast('Yuborildi', 'Parolni tiklash havolasi emailingizga yuborildi');
-        } catch (e) {
-          showToast('Xatolik', 'Tiklash xatolik berdi: ' + (e?.message || '')); 
-        }
-      });
-    }
+    // Email ishlatilmaydi: parolni tiklash funksiyasi o'chirib qo'yildi
 
     // Keep dropdown behavior (for future when user is signed in)
     if (userMenuBtn && userDropdown && userMenu) {
@@ -216,33 +343,34 @@
       });
     }
 
-    // Sign out
-    if (signOutBtn) {
-      signOutBtn.addEventListener('click', async () => {
-        if (!auth) {
-          showToast('Sozlash kerak', 'Firebase sozlamalarini to‘ldiring');
-          return;
-        }
-        try {
-          await auth.signOut();
-          showToast('Chiqildi', 'Hisobdan chiqildi');
-        } catch (e) {
-          showToast('Xatolik', 'Chiqishda xatolik');
-        }
-      });
+    // Sign out helper
+    async function doSignOut(){
+      try { if (auth) await auth.signOut(); } catch {}
+      clearLocalUser();
+      updateUIForUser(null);
+      showToast('Chiqildi', 'Hisobdan chiqildi');
     }
+    // Sign out (dropdown item)
+    if (signOutBtn) { signOutBtn.addEventListener('click', async () => { await doSignOut(); }); }
 
     // Reflect auth state in UI
+    // UI switching helpers
     function updateUIForUser(user) {
       if (user) {
-        // Hide sign buttons, show user menu
+        // Logged-in: hide Sign In/Up, show user menu with avatar + name
+        document.body.classList.add('logged-in');
         if (signInBtn) signInBtn.setAttribute('hidden', '');
         if (signUpBtn) signUpBtn.setAttribute('hidden', '');
         if (userMenu) userMenu.removeAttribute('hidden');
         if (userDisplayName) userDisplayName.textContent = user.displayName || user.email || 'Foydalanuvchi';
         if (userAvatarImg) userAvatarImg.src = user.photoURL || 'https://via.placeholder.com/32x32';
       } else {
-        if (signInBtn) signInBtn.removeAttribute('hidden');
+        // Logged-out: show Sign In/Up, hide user menu
+        document.body.classList.remove('logged-in');
+        if (signInBtn) {
+          signInBtn.removeAttribute('hidden');
+          signInBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+        }
         if (signUpBtn) signUpBtn.removeAttribute('hidden');
         if (userMenu) userMenu.setAttribute('hidden', '');
         if (userDropdown) userDropdown.setAttribute('hidden', '');
@@ -253,5 +381,8 @@
     if (auth) {
       auth.onAuthStateChanged(updateUIForUser);
     }
+    // Restore local session if present
+    const lu = getLocalUser();
+    if (lu) updateUIForUser({ displayName: lu.displayName || 'Foydalanuvchi', photoURL: lu.photoURL || null });
   });
 })();
