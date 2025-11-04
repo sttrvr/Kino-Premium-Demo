@@ -7,22 +7,22 @@
   <title>Kino Ko'rish - Kino Premium</title>
   <meta name="description" content="Kino Premium — Film sahifasi. Treylerni ko'rish, batafsil ma'lumot va shunga o'xshash filmlar.">
   <meta name="theme-color" content="#0b0b0f">
-  <link rel="canonical" href="/singlepage.html">
-  <link rel="shortcut icon" href="https://img.icons8.com/ios-filled/50/FA5252/play-button-circled--v1.png" type="image/x-icon">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="singlepage.html">
 
   <!-- Open Graph -->
   <meta property="og:type" content="video.movie">
   <meta property="og:site_name" content="Kino Premium">
   <meta property="og:title" content="Kino — Ko'rish sahifasi">
   <meta property="og:description" content="Treylerni ko'ring, ma'lumotlarni o'qing va o'xshash filmlarni toping.">
-  <meta property="og:url" content="/singlepage.html">
-  <meta property="og:image" content="/favicon.ico">
+  <meta property="og:url" content="singlepage.html">
+  <meta property="og:image" content="favicon.ico">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Kino — Ko'rish sahifasi">
   <meta name="twitter:description" content="Treylerni ko'ring, ma'lumotlarni o'qing va o'xshash filmlarni toping.">
-  <meta name="twitter:image" content="/favicon.ico">
+  <meta name="twitter:image" content="favicon.ico">
 
   <!-- Preconnects -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -35,6 +35,10 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    .skip-link { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+    .skip-link:focus { left: 16px; top: 16px; width: auto; height: auto; padding: 0.5rem 0.75rem; background: #111827; color: #fff; border-radius: 8px; z-index: 10000; outline: 2px solid #2563eb; }
+  </style>
   <script src="theme.js" defer></script>
   <!-- Firebase SDKs (for global comments) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
@@ -181,6 +185,7 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#videoPage">Asosiy kontentga o'tish</a>
   <!-- Yuklash animatsiyasi -->
   <div class="loader-container" id="loader">
     <div class="loader"></div>
@@ -189,7 +194,7 @@
   <div id="app" class="app">
     <header class="site-header">
       <div class="container header-inner">
-        <a href="/" class="logo">
+        <a href="index.html" class="logo">
           <div class="logo-icon">
             <i class="fas fa-play-circle"></i>
           </div>
@@ -261,7 +266,7 @@
 
               <section id="reviewsSectionSingle" aria-label="Sharh va reyting">
                 <h3 style="margin-bottom:0.5rem">Sharh va reyting</h3>
-                <form id="reviewFormSingle" class="auth-form" style="margin:0 0 1rem 0">
+                <div id="reviewFormSingle" class="auth-form" style="margin:0 0 1rem 0">
                   <div class="form-row">
                     <label>Reyting</label>
                     <div id="starRating" class="star-rating" aria-label="Yulduzcha bilan baholang" role="radiogroup">
@@ -273,8 +278,7 @@
                       <span id="ratingHint" class="rating-hint">Reytingni tanlang</span>
                     </div>
                   </div>
-                  <button type="submit" class="btn primary"><i class="fas fa-star"></i> Yuborish</button>
-                </form>
+                </div>
                 <!-- Local reviews list removed as requested; using global comments below -->
               </section>
 
@@ -291,7 +295,7 @@
                   </div>
                   <div class="form-row">
                     <label for="commentText">Izoh</label>
-                    <textarea id="commentText" rows="3" placeholder="Fikringizni yozing..." style="resize:vertical;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:0.6rem 0.75rem" required></textarea>
+                    <textarea id="commentText" rows="3" placeholder="Fikringizni yozing..." required></textarea>
                   </div>
                   <button type="submit" class="btn primary"><i class="fas fa-comment"></i> Yuborish</button>
                 </form>
@@ -335,9 +339,10 @@
               const getStep = () => {
                 const card = scroller.querySelector('.movie-card');
                 if (!card) return 240; // default step
-                const style = window.getComputedStyle(card);
-                const w = card.getBoundingClientRect().width + parseFloat(style.marginLeft) + parseFloat(style.marginRight);
-                return Math.max(160, Math.min(320, w));
+                const scStyle = window.getComputedStyle(scroller);
+                const gap = parseFloat(scStyle.columnGap || scStyle.gap || '0') || 0;
+                const w = card.getBoundingClientRect().width;
+                return Math.max(140, Math.min(360, w + gap));
               };
               prev.onclick = (e) => {
                 e.preventDefault(); scroller.scrollBy({ left: -getStep(), behavior: 'smooth' });
@@ -540,37 +545,33 @@
             }
           </script>
           <script>
-            // === Reviews on single page (star-based) -> submit to global Comments ===
+            // === Reviews on single page (star-based) -> merge into Comment form submit ===
             document.addEventListener('DOMContentLoaded',()=>{
-              const mid=Number(localStorage.getItem('selectedMovieId'))||0;
-              // Star rating logic
+              // Star rating logic (no separate submit)
               let selected=0; const stars=Array.from(document.querySelectorAll('#starRating .star')); const hint=document.getElementById('ratingHint');
               function paint(n){stars.forEach(s=>{const v=Number(s.dataset.value); s.classList.toggle('filled', v<=n); s.classList.toggle('active', v<=n);}); if(hint) hint.textContent = n?`Reyting: ${n}/5`:'Reytingni tanlang';}
               stars.forEach(s=>{
                 s.addEventListener('mouseenter',()=>paint(Number(s.dataset.value)));
                 s.addEventListener('mouseleave',()=>paint(selected||0));
-                s.addEventListener('click',()=>{selected=Number(s.dataset.value)||0; paint(selected||0);});
+                s.addEventListener('click',()=>{selected=Number(s.dataset.value)||0; paint(selected||0); window.__selectedRating = selected;});
               });
               paint(0);
-              const form=document.getElementById('reviewFormSingle');
-              if(form){form.addEventListener('submit',async (e)=>{
-                e.preventDefault();
-                const rating=selected||0;
-                if(!rating){ if(hint){hint.textContent='Iltimos, reytingni tanlang';} return; }
-                try {
-                  if (window.Comments && mid) {
-                    // Use optional name from comments section if present
-                    const name = (document.getElementById('commentName')?.value || '').trim();
-                    const res = await window.Comments.add(mid, { name, text: `Reyting: ${rating}/5`, pinned: true, admin: true });
-                    // Fallback: ensure pinned even if provider ignored flags
-                    if (res && res.id) {
-                      await window.Comments.pin(mid, res.id, { pinned: true, admin: true });
+              // Hook into main comment form submit
+              const cForm = document.getElementById('commentForm');
+              const cText = document.getElementById('commentText');
+              if (cForm && cText) {
+                cForm.addEventListener('submit', () => {
+                  const r = Number(window.__selectedRating||0);
+                  if (r) {
+                    // Prepend rating once
+                    if (!/^\s*⭐\s*\d\s*\/\s*5/.test(cText.value)) {
+                      cText.value = `⭐ ${r}/5 • ${cText.value}`.trim();
                     }
+                    // Reset stars after submit
+                    selected = 0; window.__selectedRating = 0; paint(0);
                   }
-                } finally {
-                  selected=0; paint(0);
-                }
-              });}
+                }, { capture: true }); // ensure it runs before external handlers
+              }
             });
           </script>
         </section>
@@ -590,24 +591,24 @@
           <div class="footer-links">
             <div class="footer-column">
               <h4>Havolalar</h4>
-              <a href="#">Bosh sahifa</a>
-              <a href="#">Filmlar</a>
-              <a href="#">Seriallar</a>
-              <a href="#">Yangi qo'shilganlar</a>
+              <a href="index.html">Bosh sahifa</a>
+              <a href="index.html#moviesSection">Filmlar</a>
+              <a href="index.html#moviesSection">Seriallar</a>
+              <a href="index.html#moviesSection">Yangi qo'shilganlar</a>
             </div>
             <div class="footer-column">
               <h4>Hisob</h4>
-              <a href="#">Profil</a>
-              <a href="#">Sevimlilar</a>
-              <a href="#">Tarix</a>
-              <a href="#">Sozlamalar</a>
+              <a href="index.html#">Profil</a>
+              <a href="index.html#moviesSection">Sevimlilar</a>
+              <a href="index.html#moviesSection">Tarix</a>
+              <a href="index.html#">Sozlamalar</a>
             </div>
             <div class="footer-column">
               <h4>Yordam</h4>
               <a href="#">FAQ</a>
               <a href="#">Qo'llab-quvvat</a>
-              <a href="#">Shartlar</a>
-              <a href="#">Maxfiylik</a>
+              <a href="terms.html">Shartlar</a>
+              <a href="privacy.html">Maxfiylik</a>
             </div>
           </div>
 
@@ -780,6 +781,13 @@
           }
         }
       } catch(e){ console.debug('Comments init skipped', e); }
+    });
+  </script>
+  <script>
+    // Footer year updater
+    document.addEventListener('DOMContentLoaded', () => {
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
     });
   </script>
   <script>
