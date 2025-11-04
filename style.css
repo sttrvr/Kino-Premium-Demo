@@ -92,6 +92,28 @@
   background: linear-gradient(90deg, rgba(0,0,0,0.08), rgba(2,6,23,0.04));
 }
 
+/* Light footer overrides for better contrast */
+[data-theme="light"] .site-footer {
+  background: linear-gradient(120deg, #eef2ff 0%, #f8fafc 50%, #f1f5f9 100%);
+  color: #0f172a;
+}
+[data-theme="light"] .footer-column h4,
+[data-theme="light"] .footer-social h4 { color: #0f172a; text-shadow: none; }
+[data-theme="light"] .footer-column a {
+  color: #334155;
+}
+[data-theme="light"] .footer-column a:hover {
+  color: #0f172a;
+  text-shadow: none;
+}
+[data-theme="light"] .social-icons a {
+  background: rgba(2, 6, 23, 0.08);
+  color: #0f172a;
+}
+[data-theme="light"] .social-icons a:hover {
+  color: #fff;
+}
+
 /* Yuklash animatsiyasi */
 .loader-container {
   position: fixed;
@@ -1130,9 +1152,48 @@ select:focus {
   transition: var(--transition);
 }
 
+/* Textarea styling to match inputs */
+.form-row textarea {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text);
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  outline: none;
+  transition: var(--transition);
+  resize: vertical;
+  min-height: 120px;
+}
+
 .form-row input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 75, 43, 0.2);
+}
+
+.form-row textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 75, 43, 0.2);
+}
+
+/* Placeholder color to be subtle but readable */
+.form-row input::placeholder,
+.form-row textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+/* Light theme overrides for form controls for better contrast */
+[data-theme="light"] .form-row input[type="text"],
+[data-theme="light"] .form-row input[type="email"],
+[data-theme="light"] .form-row input[type="password"],
+[data-theme="light"] .form-row textarea {
+  background: rgba(2, 6, 23, 0.04);
+  border: 1px solid rgba(2, 6, 23, 0.12);
+  color: var(--text);
+}
+
+[data-theme="light"] .movie-card-desc {
+  color: #334155; /* slate-700 for readability on white */
 }
 
 .switch-auth {
