@@ -7,8 +7,7 @@ const CORE_ASSETS = [
   'app.js',
   'single.js',
   'movies.json',
-  'manifest.json',
-  'favicon.ico'
+  'manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -27,9 +26,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  // Offline fallback for navigations
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match('index.html'))
+    );
+    return;
+  }
 
   const url = new URL(req.url);
-  // Only handle same-origin or movies.json for offline
+  // Only handle same-origin or movies.json for offline cache
   if (url.origin !== self.location.origin && !url.pathname.endsWith('movies.json')) return;
 
   event.respondWith(
