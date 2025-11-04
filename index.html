@@ -6,8 +6,9 @@
   <title>Kino — Premium</title>
   <meta name="description" content="Kino Premium — Eng yangi va eng yaxshi filmlar. Qidiruv, janrlar, top reytinglar va treylerlar bir joyda.">
   <meta name="theme-color" content="#0b0b0f">
-  <link rel="canonical" href="/index.html">
-  <link rel="shortcut icon" href="https://img.icons8.com/ios-filled/50/FA5252/play-button-circled--v1.png" type="image/x-icon">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="index.html">
+  <meta name="monetag" content="715e723daf2787a9d57577e48eebbafe">
   
   <!-- Google AdSense -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4872667830339282" crossorigin="anonymous"></script>
@@ -17,14 +18,29 @@
   <meta property="og:site_name" content="Kino Premium">
   <meta property="og:title" content="Kino Premium — Eng yaxshi filmlar">
   <meta property="og:description" content="Mashhur, yangi va top filmlar. Treylerlarni tomosha qiling va sevimlilarga qo'shing.">
-  <meta property="og:url" content="/">
-  <meta property="og:image" content="/favicon.ico">
+  <meta property="og:url" content="index.html">
+  <meta property="og:image" content="favicon.ico">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Kino Premium — Eng yaxshi filmlar">
   <meta name="twitter:description" content="Mashhur, yangi va top filmlar. Treylerlarni tomosha qiling va sevimlilarga qo'shing.">
-  <meta name="twitter:image" content="/favicon.ico">
+  <meta name="twitter:image" content="favicon.ico">
+
+  <!-- Structured data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Kino Premium",
+    "url": "index.html",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "index.html?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 
   <!-- Preconnects -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -40,8 +56,13 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <style>
+    .skip-link { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+    .skip-link:focus { left: 16px; top: 16px; width: auto; height: auto; padding: 0.5rem 0.75rem; background: #111827; color: #fff; border-radius: 8px; z-index: 10000; outline: 2px solid #2563eb; }
+  </style>
 </head>
 <body>
+  <a class="skip-link" href="#main">Asosiy kontentga o'tish</a>
   <!-- Yuklash animatsiyasi -->
   <div class="loader-container" id="loader">
     <div class="loader"></div>
@@ -53,16 +74,16 @@
     <!-- HEADER / NAV -->
     <header class="site-header" role="banner">
       <div class="container header-inner">
-        <a href="/" class="logo" aria-label="Kino sayt — Bosh sahifa">
+        <a href="index.html" class="logo" aria-label="Kino sayt — Bosh sahifa" aria-current="page" role="heading">
           <div class="logo-icon">
             <i class="fas fa-play-circle"></i>
           </div>
           <span class="logo-text">KINO<span class="logo-premium">PREMIUM</span></span>
         </a>
 
-        <nav class="main-nav" role="navigation" aria-label="Asosiy menyu">
+        <nav class="main-nav" role="navigation" aria-label="Asosiy menyu" id="mainNav">
           <ul class="nav-list">
-            <li><a href="#" class="nav-link active" data-filter="popular" id="navPopular"><i class="fas fa-fire"></i> Mashhurlar</a></li>
+            <li><a href="#" class="nav-link active" data-filter="popular" id="navPopular" aria-current="page"><i class="fas fa-fire"></i> Mashhurlar</a></li>
             <li><a href="#" class="nav-link" data-filter="now_playing" id="navNowPlaying"><i class="fas fa-film"></i> Kinolar</a></li>
             <li><a href="#" class="nav-link" data-filter="top_rated" id="navTopRated"><i class="fas fa-star"></i> Top</a></li>
             <li><a href="#" class="nav-link" data-filter="all_500" id="navAllMovies"><i class="fas fa-layer-group"></i> Barchasi</a></li>
@@ -73,7 +94,7 @@
         <div class="header-actions">
           <form id="searchForm" class="search-form" role="search" aria-label="Film qidirish">
             <div class="search-input-wrapper">
-              <input id="searchInput" name="q" type="search" placeholder="Film qidiring..." aria-label="Film qidirish" />
+              <input id="searchInput" name="q" type="search" placeholder="Film qidiring..." aria-label="Film qidirish" aria-required="true" />
               <button type="submit" aria-label="Qidirish">
                 <i class="fas fa-search"></i>
               </button>
@@ -82,28 +103,28 @@
             <div id="searchSuggestions" class="search-suggestions" hidden></div>
           </form>
 
-          <button id="favoritesToggle" class="btn icon-btn" aria-pressed="false" aria-label="Sevimlilar">
+          <button id="favoritesToggle" class="btn icon-btn" aria-pressed="false" aria-label="Sevimlilar" aria-controls="favoritesSection" role="button">
             <i class="fas fa-heart"></i>
           </button>
           <!-- Theme Toggle -->
-          <button id="themeToggle" class="btn icon-btn" aria-label="Rejimni almashtirish" aria-pressed="false" title="Light/Dark">
+          <button id="themeToggle" class="btn icon-btn" aria-label="Rejimni almashtirish" aria-pressed="false" title="Light/Dark" aria-controls="app" role="button">
             <i class="fas fa-moon"></i>
           </button>
           <!-- Auth Actions -->
-          <button id="signInBtn" class="btn ghost" type="button">
+          <button id="signInBtn" class="btn ghost" type="button" aria-haspopup="dialog" aria-controls="authModal">
             <i class="fas fa-sign-in-alt"></i> Sign In
           </button>
-          <button id="signUpBtn" class="btn primary" type="button">
+          <button id="signUpBtn" class="btn primary" type="button" aria-haspopup="dialog" aria-controls="authModal">
             <i class="fas fa-user-plus"></i> Sign Up
           </button>
-          <div id="userMenu" class="user-menu" hidden>
-            <button id="userMenuBtn" class="user-avatar" aria-haspopup="true" aria-expanded="false">
+          <div id="userMenu" class="user-menu" hidden aria-live="polite">
+            <button id="userMenuBtn" class="user-avatar" aria-haspopup="true" aria-expanded="false" aria-controls="userDropdown">
               <img id="userAvatarImg" src="https://via.placeholder.com/32x32" alt="User avatar" width="32" height="32" />
               <span id="userDisplayName">Foydalanuvchi</span>
               <i class="fas fa-chevron-down"></i>
             </button>
-            <div id="userDropdown" class="user-dropdown" role="menu" hidden>
-              <button id="signOutBtn" class="dropdown-item" role="menuitem">
+            <div id="userDropdown" class="user-dropdown" role="menu" hidden aria-labelledby="userMenuBtn">
+              <button id="signOutBtn" class="dropdown-item" role="menuitem" aria-label="Chiqish">
                 <i class="fas fa-sign-out-alt"></i> Chiqish
               </button>
             </div>
@@ -111,7 +132,7 @@
         </div>
         
         <!-- Mobile menu button -->
-        <button class="mobile-menu-toggle" aria-label="Menyuni ochish">
+        <button class="mobile-menu-toggle" aria-label="Menyuni ochish" aria-expanded="false" aria-controls="mainNav">
           <span></span>
           <span></span>
           <span></span>
@@ -125,6 +146,37 @@
         <div class="carousel-track" id="carouselTrack">
           <!-- JS orqali .carousel-slide elementlari qo'shiladi -->
         </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal-panel" role="document">
+        <button id="settingsClose" class="modal-close" aria-label="Yopish">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="modal-content">
+          <div class="modal-body" style="width:100%">
+            <h2>Sozlamalar</h2>
+            <div class="auth-form">
+              <div class="form-row">
+                <label>Rejim</label>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                  <button id="settingsThemeLight" class="btn ghost" type="button"><i class="fas fa-sun"></i> Oq rejim</button>
+                  <button id="settingsThemeDark" class="btn ghost" type="button"><i class="fas fa-moon"></i> Qora rejim</button>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Ma'lumotlar</label>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                  <button id="clearFavoritesBtn" class="btn" type="button"><i class="fas fa-heart-broken"></i> Sevimlilarni tozalash</button>
+                  <button id="clearHistoryBtn" class="btn" type="button"><i class="fas fa-clock"></i> Tarixni tozalash</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
         <button class="carousel-btn prev" id="carouselPrev" aria-label="Oldingi">
           <i class="fas fa-chevron-left"></i>
@@ -146,10 +198,9 @@
       <!-- Gradient overlay for better text visibility -->
       <div class="carousel-gradient-overlay"></div>
     </section>
-
+    <h1 style="text-align: center;">BU YERDA YAQINDA GOOGLE ADS BOLADI</h1>
     <!-- ADSENSE: Responsive banner under the hero carousel -->
     <section class="ad-container" aria-label="Reklama">
-      <h1 style="text-align: center;">BU YERDA YAQINDA GOOGLE ADS BOLADI</h1>
       <!-- Replace YOUR_SLOT_ID with your real AdSense slot ID -->
       <ins class="adsbygoogle"
            style="display:block"
@@ -169,10 +220,10 @@
         <section class="featured-categories">
           <h2 class="section-title">Kategoriyalar</h2>
           <div class="categories-grid">
-            <div class="category-card" data-category="Jangari" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80');">
+            <div class="category-card" data-category="Jangari" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?ixlib=rb-4.0.3&auto=format&fit=crop&w=700&q=60');">
               <h3>Jangari</h3>
             </div>
-            <div class="category-card" data-category="Qo'rqinchli" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1509248961158-e54f6934749c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1022&q=80');">
+            <div class="category-card" data-category="Qo'rqinchli" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://images.unsplash.com/photo-1509248961158-e54f6934749c?ixlib=rb-4.0.3&auto=format&fit=crop&w=700&q=60');">
               <h3>Qo'rqinchli</h3>
             </div>
             <div class="category-card" data-category="Komediya" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://i.ytimg.com/vi/rfZikM-uYKE/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLCyf-FC-D-OI6CdrVTeLxKWcs2Wzw');">
@@ -184,7 +235,7 @@
             <div class="category-card" data-category="Sarguzasht" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://m.media-amazon.com/images/M/MV5BMTM2NDg1NDU4NF5BMl5BanBnXkFtZTcwMzgxMDMzNA@@._V1_FMjpg_UX1050_.jpg');">
               <h3>Sarguzasht</h3>
             </div>
-            <div class="category-card" data-genre-id="878" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/59173d0b-5ac3-4ede-906d-80136b44fd0e/compose?aspectRatio=1.78&format=webp&width=1200');">
+            <div class="category-card" data-genre-id="878" style="background-image: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.7)), url('https://disney.images.edge.bamgrid.com/ripcut-delivery/v2/variant/disney/59173d0b-5ac3-4ede-906d-80136b44fd0e/compose?aspectRatio=1.78&format=webp&width=800');">
               <h3>Fantastik</h3>
             </div>
           </div>
@@ -210,13 +261,28 @@
         <!-- MOVIE GRID -->
         <section id="moviesSection" class="movies-section" aria-label="Filmlar ro'yxati">
           <h2 class="section-title" id="moviesSectionTitle">Popular Filmlar</h2>
+          
+          <!-- Loading Skeleton -->
+          <div id="loadingSkeleton" class="movies-skeleton" hidden>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+          
           <ul id="moviesGrid" class="movies-grid" role="list">
             <!-- JS orqali <li class="movie-card" data-id="..."> ... </li> qo'shiladi -->
           </ul>
 
           <div id="emptyState" class="empty-state" hidden>
-            <i class="fas fa-film"></i>
-            <p>Filmlar topilmadi.</p>
+            <div class="empty-state-icon">
+              <i class="fas fa-film"></i>
+            </div>
+            <h3 class="empty-state-title">Filmlar topilmadi</h3>
+            <p class="empty-state-description">Kechirasiz, hozircha bu bo'limda filmlar mavjud emas. Iltimos, keyinroq qayta urinib ko'ring.</p>
+            <button class="btn primary empty-state-action" onclick="window.location.reload()">
+              <i class="fas fa-sync-alt"></i> Yangilash
+            </button>
           </div>
         </section>
       </div>
@@ -347,7 +413,7 @@
         </div>
         
         <div class="footer-bottom">
-          <p>© <span id="year"></span> Kino Premium. Barcha huquqlar himoyalangan.</p>
+          <p><span id="year"></span> Kino Premium. Barcha huquqlar himoyalangan.</p>
           <nav class="footer-nav" aria-label="Qo'shimcha">
             <a href="privacy.html">Maxfiylik siyosati</a>
             <a href="terms.html">Foydalanish shartlari</a>
@@ -378,12 +444,13 @@
     // Service Worker registration
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function (err) {
+        navigator.serviceWorker.register('sw.js').catch(function (err) {
           console.debug('SW register failed:', err);
         });
       });
     }
   </script>
+  <noscript>Ushbu sayt JavaScript yoqilganda to'liq ishlaydi.</noscript>
   
 </body>
 </html>
