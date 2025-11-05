@@ -603,5 +603,19 @@
         "video": "https://ok.ru/videoembed/9472900406956",
         "poster_img": "https://upload.wikimedia.org/wikipedia/en/f/f2/Fast_X_poster.jpg",
         "details": "Dominik Toretto va uning oilasi o‘tmishdagi dushmanining qasosi bilan to‘qnash kelib, dunyo bo‘ylab xavfli sarguzashtga kirishadi."
+    },
+    {
+        "id": 119,
+        "name": "Yomon Yigitlar",
+        "year": 2025,
+        "til": "UZ",
+        "trend": true,
+        "duration": 105,
+        "type": "kinofilm",
+        "category":["Jangari", "Sarguzasht", "Animatsiya"],
+        "poster_background": "https://picsum.photos/id/26/1200/350",
+        "video": "https://mover.uz/video/embed/enT3LuOm",
+        "poster_img": "https://asilmedia.org/rasmlar/images/2025/08/10/image.psd5.jpg",
+        "details": "Yomon yigitlar yangi hayotga moslashishga harakat qilishadi, biroq ularni jinoyat olamiga qaytib, oxirgi topshiriqni bajarishga majbur qilishadi."
     }
 ]
