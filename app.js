@@ -858,18 +858,12 @@ function setupCarousel(movies = []) {
   elements.carouselTrack.innerHTML = '';
   if (elements.carouselDots) elements.carouselDots.innerHTML = '';
 
+  // Build original slides
   movies.forEach((m, i) => {
     const slide = document.createElement('div');
     slide.className = `carousel-slide`;
-    if (i === 0) slide.classList.add('center');
-    
-    // Slayderlarni joylashtirish (mobil va desktop uchun bir xil model)
-    const position = calculateSlidePosition(i, 0);
-    slide.style.left = position.left;
-    slide.style.zIndex = position.zIndex;
-    slide.style.transform = `scale(${position.scale})`;
-    slide.style.opacity = position.opacity;
-    if (position.filter) slide.style.filter = position.filter;
+    slide.dataset.originalIndex = String(i);
+    if (i === 0) slide.classList.add('is-active');
     
     slide.dataset.index = i;
     
@@ -889,8 +883,10 @@ function setupCarousel(movies = []) {
     const year = getYear(m);
     const rating = getRating(m);
     
+    // For first and last slides, set background immediately to avoid flicker on loop
+    const immediateBg = (i === 0 || i === movies.length - 1) ? bg : '';
     slide.innerHTML = `
-      <div class="slide-bg" data-bg="${bg}"></div>
+      <div class="slide-bg" ${immediateBg ? `style="background-image:url('${immediateBg}')"` : `data-bg="${bg}"`}></div>
       <div class="slide-content">
         <h3 class="slide-title">${title}</h3>
         <div class="slide-meta">${year} • ⭐ ${rating}</div>
@@ -912,7 +908,7 @@ if (watchBtn) {
   });
 }
 
-    if (!isMobile && elements.carouselDots) {
+    if (elements.carouselDots) {
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.className = i === 0 ? 'active' : '';
@@ -920,6 +916,36 @@ if (watchBtn) {
       elements.carouselDots.appendChild(dot);
     }
   });
+
+  // Clone last to the start and first to the end for infinite loop
+  const slidesNow = Array.from(elements.carouselTrack.children);
+  if (slidesNow.length > 1) {
+    const firstClone = slidesNow[0].cloneNode(true);
+    firstClone.dataset.clone = 'first';
+    const lastClone = slidesNow[slidesNow.length - 1].cloneNode(true);
+    lastClone.dataset.clone = 'last';
+    // Ensure clones have immediate background image (no lazy)
+    const srcFirstBg = slidesNow[0].querySelector('.slide-bg');
+    const srcLastBg = slidesNow[slidesNow.length - 1].querySelector('.slide-bg');
+    const firstCloneBg = firstClone.querySelector('.slide-bg');
+    const lastCloneBg = lastClone.querySelector('.slide-bg');
+    if (srcFirstBg && firstCloneBg) {
+      const styleBg = srcFirstBg.style.backgroundImage || srcFirstBg.getAttribute('data-bg') || '';
+      if (styleBg) {
+        if (styleBg.startsWith('url(')) firstCloneBg.style.backgroundImage = styleBg; else firstCloneBg.style.backgroundImage = `url('${styleBg}')`;
+        firstCloneBg.removeAttribute('data-bg');
+      }
+    }
+    if (srcLastBg && lastCloneBg) {
+      const styleBg = srcLastBg.style.backgroundImage || srcLastBg.getAttribute('data-bg') || '';
+      if (styleBg) {
+        if (styleBg.startsWith('url(')) lastCloneBg.style.backgroundImage = styleBg; else lastCloneBg.style.backgroundImage = `url('${styleBg}')`;
+        lastCloneBg.removeAttribute('data-bg');
+      }
+    }
+    elements.carouselTrack.appendChild(firstClone);
+    elements.carouselTrack.insertBefore(lastClone, elements.carouselTrack.firstChild);
+  }
   // Lazy load slide backgrounds
   const slidesBg = elements.carouselTrack.querySelectorAll('.slide-bg');
   const io = new IntersectionObserver((entries, obs) => {
@@ -935,12 +961,16 @@ if (watchBtn) {
       }
     });
   }, { rootMargin: '200px' });
-  slidesBg.forEach(el => io.observe(el));
+  slidesBg.forEach(el => { if (el.hasAttribute('data-bg')) io.observe(el); });
 
-  if (!isMobile) startCarouselAutoplay();
-  // Hide nav buttons on mobile
-  if (elements.carouselPrev) elements.carouselPrev.style.display = isMobile ? 'none' : '';
-  if (elements.carouselNext) elements.carouselNext.style.display = isMobile ? 'none' : '';
+  // Center initial (accounting for prepended clone) and start autoplay
+  centerActiveSlide();
+  startCarouselAutoplay();
+  // Keep nav buttons visible (CSS handles small screens)
+  if (elements.carouselPrev) elements.carouselPrev.style.display = '';
+  if (elements.carouselNext) elements.carouselNext.style.display = '';
+  // Re-center on resize
+  window.addEventListener('resize', () => { centerActiveSlide(); });
 }
 
 function goToSlide(idx) {
@@ -949,24 +979,11 @@ function goToSlide(idx) {
   if (idx >= state.carouselItems.length) idx = 0;
   
   state.currentSlide = idx;
-  const slides = document.querySelectorAll('.carousel-slide');
-  
-  // Har bir slaydni yangi pozitsiyaga joylashtirish
-  slides.forEach((slide, i) => {
-    const position = calculateSlidePosition(i, idx);
-    slide.style.left = position.left;
-    slide.style.zIndex = position.zIndex;
-    slide.style.transform = `scale(${position.scale})`;
-    slide.style.opacity = position.opacity;
-    
-    // Filter stilini qo'shish
-    if (position.filter) {
-      slide.style.filter = position.filter;
-    }
-    
-    // Center klassini faqat markazdagi slaydga qo'shish
-    slide.classList.toggle('center', i === idx);
-  });
+  const slides = Array.from(elements.carouselTrack.querySelectorAll('.carousel-slide'));
+  // active dom index accounts for leading clone at index 0
+  const domIndex = idx + 1;
+  slides.forEach((slide, i) => slide.classList.toggle('is-active', i === domIndex));
+  centerActiveSlide();
   
   if (elements.carouselDots) {
     const dots = elements.carouselDots.querySelectorAll('button');
@@ -978,20 +995,100 @@ function navigateCarousel(dir) {
   if (!state.carouselItems.length) return;
   if (state.carouselLock) return;
   state.carouselLock = true;
-  const newIndex = (state.currentSlide + dir + state.carouselItems.length) % state.carouselItems.length;
-  goToSlide(newIndex);
+  const n = state.carouselItems.length;
+  // Wrap with clone jump for seamless loop
+  if (dir === 1 && state.currentSlide === n - 1) {
+    // animate to clone of first (dom index n+1)
+    jumpToDomIndex(n + 1, true);
+    // after transition, snap to real first (dom index 1)
+    onNextTransitionOnce(() => {
+      snapToDomIndex(1);
+      state.currentSlide = 0;
+      updateActiveClassesByDom(1);
+    });
+  } else if (dir === -1 && state.currentSlide === 0) {
+    // animate to clone of last (dom index 0)
+    jumpToDomIndex(0, true);
+    onNextTransitionOnce(() => {
+      snapToDomIndex(n);
+      state.currentSlide = n - 1;
+      updateActiveClassesByDom(n);
+    });
+  } else {
+    const newIndex = (state.currentSlide + dir + n) % n;
+    goToSlide(newIndex);
+  }
   // After manual navigation, pause autoplay briefly to avoid immediate auto-advance
   pauseCarouselAutoplay(3500);
   setTimeout(() => { state.carouselLock = false; }, 700); // match CSS transition ~0.7s
 }
 
+// Center the active slide by translating the track
+function centerActiveSlide() {
+  if (!elements.carouselTrack) return;
+  const slides = Array.from(elements.carouselTrack.querySelectorAll('.carousel-slide'));
+  if (!slides.length) return;
+  const domIndex = Math.max(0, Math.min(state.currentSlide + 1, slides.length - 1));
+  const active = slides[domIndex];
+  const trackRect = elements.carouselTrack.getBoundingClientRect();
+  const activeRect = active.getBoundingClientRect();
+  const trackCenter = trackRect.width / 2;
+  const offsetLeft = active.offsetLeft + (activeRect.width / 2);
+  const translateX = offsetLeft - trackCenter;
+  elements.carouselTrack.style.transform = `translateX(${-translateX}px)`;
+}
+
+function computeCenterTranslate(index) {
+  if (!elements.carouselTrack) return 0;
+  const slides = Array.from(elements.carouselTrack.querySelectorAll('.carousel-slide'));
+  if (!slides.length) return 0;
+  const domIndex = Math.max(0, Math.min(index + 1, slides.length - 1));
+  const active = slides[domIndex];
+  const trackRect = elements.carouselTrack.getBoundingClientRect();
+  const activeRect = active.getBoundingClientRect();
+  const trackCenter = trackRect.width / 2;
+  const offsetLeft = active.offsetLeft + (activeRect.width / 2);
+  return offsetLeft - trackCenter;
+}
+
+function updateActiveClassesByDom(domIndex) {
+  const slides = Array.from(elements.carouselTrack.querySelectorAll('.carousel-slide'));
+  slides.forEach((slide, i) => slide.classList.toggle('is-active', i === domIndex));
+  if (elements.carouselDots) {
+    const dots = elements.carouselDots.querySelectorAll('button');
+    dots.forEach((d, i) => d.classList.toggle('active', i === state.currentSlide));
+  }
+}
+
+function jumpToDomIndex(domIndex, animate) {
+  const slides = Array.from(elements.carouselTrack.querySelectorAll('.carousel-slide'));
+  if (!slides[domIndex]) return;
+  const trackRect = elements.carouselTrack.getBoundingClientRect();
+  const activeRect = slides[domIndex].getBoundingClientRect();
+  const trackCenter = trackRect.width / 2;
+  const offsetLeft = slides[domIndex].offsetLeft + (activeRect.width / 2);
+  const translateX = offsetLeft - trackCenter;
+  elements.carouselTrack.style.transition = animate ? 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+  elements.carouselTrack.style.transform = `translateX(${-translateX}px)`;
+}
+
+function snapToDomIndex(domIndex) {
+  jumpToDomIndex(domIndex, false);
+  // force reflow then restore transition
+  void elements.carouselTrack.offsetHeight;
+  elements.carouselTrack.style.transition = 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1)';
+}
+
+function onNextTransitionOnce(cb) {
+  const handler = () => { elements.carouselTrack.removeEventListener('transitionend', handler); cb(); };
+  elements.carouselTrack.addEventListener('transitionend', handler, { once: true });
+}
+
 function startCarouselAutoplay() {
   clearInterval(state.carouselInterval);
   if (state.carouselResumeTimeout) { clearTimeout(state.carouselResumeTimeout); state.carouselResumeTimeout = null; }
-  // Avtomatik o'ynash intervalini 3 sekundga o'rnatish
-  const autoplayInterval = 3000; // 3 sekund
-  
-  if (window.innerWidth <= 768) return; // mobile: disable autoplay
+  // Avtomatik o'ynash intervalini 3 sekundga o'rnatish (mobile ham ishlaydi)
+  const autoplayInterval = 3000;
   state.carouselInterval = setInterval(() => {
     if ((!elements.carouselAutoplay || elements.carouselAutoplay.checked) && state.carouselItems && state.carouselItems.length > 0) {
       navigateCarousel(1); // Har doim o'ngga harakatlanish
@@ -1310,7 +1407,14 @@ function setupEventListeners() {
   if (elements.carouselPrev) elements.carouselPrev.addEventListener('click', () => navigateCarousel(-1));
   if (elements.carouselNext) elements.carouselNext.addEventListener('click', () => navigateCarousel(1));
   if (elements.carouselAutoplay) elements.carouselAutoplay.addEventListener('change', toggleCarouselAutoplay);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+    // Keyboard carousel navigation on desktop
+    if (window.innerWidth > 1024 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (e.key === 'ArrowLeft') navigateCarousel(-1);
+      if (e.key === 'ArrowRight') navigateCarousel(1);
+    }
+  });
   if (elements.reviewForm) elements.reviewForm.addEventListener('submit', handleAddReview);
   if (elements.trailerClose) elements.trailerClose.addEventListener('click', closeTrailerModal);
   if (elements.trailerModal) elements.trailerModal.addEventListener('click', (e) => { if (e.target === elements.trailerModal) closeTrailerModal(); });
@@ -1373,14 +1477,53 @@ function setupEventListeners() {
   // Carousel touch swipe
   if (elements.carouselTrack) {
     let startX = 0;
+    let dragging = false;
+    let lastDelta = 0;
+    const onMove = (clientX) => {
+      if (!dragging) return;
+      lastDelta = clientX - startX;
+      // Live translate for feedback
+      const base = computeCenterTranslate(state.currentSlide);
+      elements.carouselTrack.style.transform = `translateX(${-(base - lastDelta)}px)`;
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      elements.carouselTrack.style.transition = 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1)';
+      if (lastDelta < -50) navigateCarousel(1);
+      else if (lastDelta > 50) navigateCarousel(-1);
+      else centerActiveSlide();
+      lastDelta = 0;
+      // resume autoplay a bit later
+      pauseCarouselAutoplay(3000);
+    };
+    // Touch
     elements.carouselTrack.addEventListener('touchstart', e => {
-      startX = e.changedTouches[0].screenX;
+      startX = e.changedTouches[0].clientX;
+      dragging = true;
+      elements.carouselTrack.style.transition = 'none';
     }, { passive: true });
-    elements.carouselTrack.addEventListener('touchend', e => {
-      const endX = e.changedTouches[0].screenX;
-      if (endX < startX - 50) navigateCarousel(1);
-      if (endX > startX + 50) navigateCarousel(-1);
+    elements.carouselTrack.addEventListener('touchmove', e => {
+      onMove(e.changedTouches[0].clientX);
     }, { passive: true });
+    elements.carouselTrack.addEventListener('touchend', () => { onEnd(); }, { passive: true });
+    // Mouse
+    elements.carouselTrack.addEventListener('mousedown', e => {
+      startX = e.clientX;
+      dragging = true;
+      elements.carouselTrack.style.transition = 'none';
+      clearInterval(state.carouselInterval);
+    });
+    window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX); });
+    window.addEventListener('mouseup', () => { onEnd(); });
+
+    // Pause autoplay on hover (desktop)
+    elements.carouselTrack.addEventListener('mouseenter', () => {
+      clearInterval(state.carouselInterval);
+    });
+    elements.carouselTrack.addEventListener('mouseleave', () => {
+      if (!elements.carouselAutoplay || elements.carouselAutoplay.checked) startCarouselAutoplay();
+    });
   }
 
   // Footer links
